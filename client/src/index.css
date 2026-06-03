@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+/* IntellMeet "Signal" theme — a calm dark command-center palette.
+   Deep ink background, a cyan/teal "signal" accent for live/real-time states,
+   and a warm amber reserved exclusively for AI moments. */
+
+@theme {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-ink-950: #06080f;
+  --color-ink-900: #0a0e1a;
+  --color-ink-850: #0e1424;
+  --color-ink-800: #121a2e;
+  --color-ink-700: #1b2540;
+  --color-ink-600: #28344f;
+  --color-line: #1e2840;
+
+  --color-signal-400: #2dd4bf;
+  --color-signal-500: #14b8a6;
+  --color-signal-600: #0d9488;
+
+  --color-ai-400: #fbbf24;
+  --color-ai-500: #f59e0b;
+
+  --color-danger-500: #f43f5e;
+  --color-text-hi: #eef2ff;
+  --color-text-mid: #9fb0d0;
+  --color-text-lo: #5d6b8a;
+
+  --radius-card: 16px;
+}
+
+@font-face {
+  font-family: "Space Grotesk";
+  font-display: swap;
+  src: local("Space Grotesk");
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, #0d948833, transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, #14b8a61f, transparent 55%),
+    var(--color-ink-950);
+  color: var(--color-text-hi);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle grain so the dark background has texture rather than flat black. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--color-signal-500);
+  color: var(--color-ink-950);
+}
+
+/* Thin custom scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-600) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ink-600);
+  border-radius: 99px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 #2dd4bf66;
+  }
+  70% {
+    box-shadow: 0 0 0 10px #2dd4bf00;
+  }
+  100% {
+    box-shadow: 0 0 0 0 #2dd4bf00;
+  }
+}
+.animate-pulse-ring {
+  animation: pulse-ring 2s infinite;
+}
