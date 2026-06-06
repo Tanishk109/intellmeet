@@ -10,6 +10,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Copy,
+  Sparkles,
 } from "lucide-react";
 import { Card, Badge, Spinner } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -169,6 +170,15 @@ export default function Meetings() {
               </div>
 
               <div className="flex items-center gap-2">
+                {m.status === "ended" && (
+                  <Button
+                    size="sm"
+                    variant="ai"
+                    onClick={() => navigate(`/app/intelligence?m=${m.code}`)}
+                  >
+                    <Sparkles className="size-4" /> Summary
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant={m.status === "ended" ? "outline" : "primary"}

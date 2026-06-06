@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,6 +12,9 @@ import {
   Radio,
   AlertTriangle,
   ArrowLeft,
+  MessageSquare,
+  Captions,
+  X,
 } from "lucide-react";
 import { Spinner, Badge } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -19,7 +22,9 @@ import { useToast } from "@/components/ui/Toast";
 import { meetingApi } from "@/api";
 import { useAuth } from "@/stores/auth";
 import { useWebRTC } from "@/features/meeting/useWebRTC";
+import { useCaptions } from "@/features/meeting/useCaptions";
 import { VideoTile } from "@/features/meeting/VideoTile";
+import { ChatPanel } from "@/features/meeting/ChatPanel";
 import { cn } from "@/lib/utils";
 
 /** Pick a grid column count that keeps tiles reasonably sized. */
@@ -83,11 +88,16 @@ export default function MeetingRoom() {
     sharing,
     participantCount,
     error,
+    socket,
     toggleMic,
     toggleCamera,
     toggleShare,
     leave,
   } = useWebRTC(code, user?.name ?? "Guest");
+
+  const captions = useCaptions(socket, code ?? "", user?.name ?? "Guest");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [captionsVisible, setCaptionsVisible] = useState(true);
 
   const startMutation = useMutation({
     mutationFn: () => meetingApi.start(code!),
@@ -189,33 +199,69 @@ export default function MeetingRoom() {
         </div>
       )}
 
-      {/* Video grid */}
-      <div className={cn("grid gap-3", cols)}>
-        <VideoTile
-          stream={localStream}
-          name={user?.name ?? "You"}
-          muted
-          isLocal
-          micOn={micOn}
-          cameraOn={cameraOn}
-        />
-        {remotePeers.map((peer) => (
-          <VideoTile
-            key={peer.socketId}
-            stream={peer.stream}
-            name={peer.name}
-            micOn={peer.micOn}
-            cameraOn={peer.cameraOn}
-          />
-        ))}
-      </div>
+      {/* Stage: video grid + optional chat side panel */}
+      <div className="flex gap-4">
+        <div className="relative min-w-0 flex-1">
+          <div className={cn("grid gap-3", cols)}>
+            <VideoTile
+              stream={localStream}
+              name={user?.name ?? "You"}
+              muted
+              isLocal
+              micOn={micOn}
+              cameraOn={cameraOn}
+            />
+            {remotePeers.map((peer) => (
+              <VideoTile
+                key={peer.socketId}
+                stream={peer.stream}
+                name={peer.name}
+                micOn={peer.micOn}
+                cameraOn={peer.cameraOn}
+              />
+            ))}
+          </div>
 
-      {remotePeers.length === 0 && (
-        <p className="text-center text-sm text-text-lo">
-          Waiting for others to join… share the code{" "}
-          <span className="font-mono text-text-mid">{meeting.code}</span> to invite people.
-        </p>
-      )}
+          {remotePeers.length === 0 && (
+            <p className="mt-4 text-center text-sm text-text-lo">
+              Waiting for others to join… share the code{" "}
+              <span className="font-mono text-text-mid">{meeting.code}</span> to invite people.
+            </p>
+          )}
+
+          {/* Live captions overlay */}
+          {captionsVisible && captions.captions.length > 0 && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 mx-auto max-w-2xl px-4">
+              <div className="rounded-xl bg-ink-950/85 px-4 py-2.5 backdrop-blur">
+                {captions.captions.slice(-2).map((c, i) => (
+                  <p key={c.at + i} className="text-sm leading-snug text-text-hi">
+                    <span className="font-medium text-signal-400">{c.name}:</span> {c.text}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Chat side panel */}
+        {chatOpen && (
+          <aside className="hidden w-80 shrink-0 flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-ink-850/70 md:flex">
+            <div className="flex items-center justify-between border-b border-line py-1.5 pl-1 pr-2">
+              <span className="pl-3 text-xs text-text-lo">Chat</span>
+              <button
+                onClick={() => setChatOpen(false)}
+                className="grid size-7 place-items-center rounded-md text-text-lo hover:bg-ink-700 hover:text-text-hi"
+                aria-label="Close chat"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <ChatPanel socket={socket} code={code!} myName={user?.name ?? "Guest"} />
+            </div>
+          </aside>
+        )}
+      </div>
 
       {/* Control bar */}
       <div className="sticky bottom-4 z-10 mx-auto flex items-center gap-3 rounded-full border border-line bg-ink-850/90 px-5 py-3 shadow-xl backdrop-blur">
@@ -236,6 +282,30 @@ export default function MeetingRoom() {
         >
           <MonitorUp className={cn("size-5", sharing && "text-signal-400")} />
         </ControlButton>
+
+        {/* Captions toggle (only when the browser supports speech recognition) */}
+        {captions.supported && (
+          <ControlButton
+            active={!captions.enabled}
+            onClick={() => {
+              captions.toggle();
+              setCaptionsVisible(true);
+            }}
+            label={captions.enabled ? "Turn off captions" : "Turn on captions"}
+          >
+            <Captions className={cn("size-5", captions.enabled && "text-signal-400")} />
+          </ControlButton>
+        )}
+
+        {/* Chat toggle */}
+        <ControlButton
+          active={!chatOpen}
+          onClick={() => setChatOpen((v) => !v)}
+          label={chatOpen ? "Close chat" : "Open chat"}
+        >
+          <MessageSquare className={cn("size-5", chatOpen && "text-signal-400")} />
+        </ControlButton>
+
         <div className="mx-1 h-8 w-px bg-line" />
         <ControlButton danger onClick={handleLeave} label="Leave meeting">
           <PhoneOff className="size-5" />

@@ -47,6 +47,9 @@ export function useWebRTC(code: string | undefined, displayName: string): UseWeb
   const [sharing, setSharing] = useState(false);
   const [participantCount, setParticipantCount] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  // Reactive mirror of the socket ref so consumers (chat panel) re-render once
+  // the connection exists.
+  const [socket, setSocket] = useState<AppSocket | null>(null);
 
   const socketRef = useRef<AppSocket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -129,6 +132,7 @@ export function useWebRTC(code: string | undefined, displayName: string): UseWeb
 
     const socket = createSocket();
     socketRef.current = socket;
+    setSocket(socket);
 
     async function start() {
       // 1) Local camera + mic.
@@ -216,6 +220,7 @@ export function useWebRTC(code: string | undefined, displayName: string): UseWeb
       peersRef.current.clear();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       socketRef.current = null;
+      setSocket(null);
     };
   }, [code, displayName, makePeer, removePeer, upsertPeer]);
 
@@ -291,7 +296,7 @@ export function useWebRTC(code: string | undefined, displayName: string): UseWeb
     sharing,
     participantCount,
     error,
-    socket: socketRef.current,
+    socket,
     toggleMic,
     toggleCamera,
     toggleShare,

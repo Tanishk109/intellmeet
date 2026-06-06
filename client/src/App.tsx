@@ -15,6 +15,7 @@ import Dashboard from "@/pages/Dashboard";
 import Schedule from "@/pages/Schedule";
 import Meetings from "@/pages/Meetings";
 import MeetingRoom from "@/pages/MeetingRoom";
+import Intelligence from "@/pages/Intelligence";
 import { Placeholder } from "@/pages/Placeholder";
 
 const router = createBrowserRouter([
@@ -34,7 +35,7 @@ const router = createBrowserRouter([
       { path: "meetings", element: <Meetings /> },
       { path: "schedule", element: <Schedule /> },
       { path: "room/:code", element: <MeetingRoom /> },
-      { path: "intelligence", element: <Placeholder title="AI Intelligence" /> },
+      { path: "intelligence", element: <Intelligence /> },
       { path: "board", element: <Placeholder title="Project Board" /> },
       { path: "analytics", element: <Placeholder title="Analytics" /> },
       { path: "notifications", element: <Placeholder title="Notifications" /> },
