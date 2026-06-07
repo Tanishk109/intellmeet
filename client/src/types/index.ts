@@ -25,6 +25,7 @@ export interface Meeting {
   id: string; // human-readable MT-xxxx code (matches backend)
   _id: string;
   code: string;
+  host: string; // host user id; used to gate host-only controls
   title: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm

@@ -10,7 +10,20 @@ dotenv.config();
 // Seeds a demo account + the two meetings the frontend currently hardcodes,
 // so the live demo (PDF requirement: usable without sign-up) has real data.
 async function seed() {
-  await connectDB(process.env.MONGO_URI);
+  const uri = process.env.MONGO_URI || "";
+  // Safety: this script wipes Users/Meetings/Notifications. Refuse to run it
+  // against a remote/Atlas database unless --force is passed explicitly, so a
+  // stray `npm run seed` can't nuke production data.
+  const isLocal = /(@|\/\/)(127\.0\.0\.1|localhost)/.test(uri);
+  if (!isLocal && !process.argv.includes("--force")) {
+    console.error(
+      "[seed] Refusing to wipe a non-local database (MONGO_URI is not localhost).\n" +
+        "       Re-run with --force if you really intend to reset this database."
+    );
+    process.exit(1);
+  }
+
+  await connectDB(uri);
 
   await Promise.all([User.deleteMany({}), Meeting.deleteMany({}), Notification.deleteMany({})]);
 

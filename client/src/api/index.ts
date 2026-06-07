@@ -3,6 +3,7 @@ import type {
   Analytics,
   AppNotification,
   AuthResponse,
+  ChatMessage,
   Meeting,
   Summary,
   User,
@@ -31,6 +32,10 @@ export const meetingApi = {
   update: (code: string, body: Partial<Meeting>) =>
     http.put<{ success: true; meeting: Meeting }>(`/meetings/${code}`, body).then((r) => r.data.meeting),
   remove: (code: string) => http.delete(`/meetings/${code}`).then((r) => r.data),
+  messages: (code: string) =>
+    http
+      .get<{ success: true; messages: ChatMessage[] }>(`/meetings/${code}/messages`)
+      .then((r) => r.data.messages),
   start: (code: string) =>
     http.post<{ success: true; meeting: Meeting }>(`/meetings/${code}/start`).then((r) => r.data.meeting),
   end: (code: string) =>

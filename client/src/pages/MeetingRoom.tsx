@@ -149,7 +149,9 @@ export default function MeetingRoom() {
     );
   }
 
-  const isHost = true; // backend enforces host-only on start/end; UI shows controls
+  // The backend enforces host-only start/end; only show those controls to the
+  // actual host so non-hosts don't get 403s.
+  const isHost = !!user && meeting.host === user.id;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5">

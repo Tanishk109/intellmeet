@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import type { AppSocket } from "@/lib/socket";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { meetingApi } from "@/api";
 import { cn } from "@/lib/utils";
 
 interface Msg {
@@ -29,6 +31,31 @@ export function ChatPanel({ socket, code, myName }: ChatPanelProps) {
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSent = useRef(0);
 
+  // Load persisted history so people who join late see prior messages.
+  const { data: history } = useQuery({
+    queryKey: ["messages", code],
+    queryFn: () => meetingApi.messages(code),
+    enabled: !!code,
+  });
+
+  useEffect(() => {
+    if (!history) return;
+    setMessages((prev) => {
+      const seen = new Set(prev.map((m) => m.id));
+      const fromHistory = history
+        .filter((m) => !seen.has(m.id))
+        .map((m) => ({
+          id: m.id,
+          senderName: m.senderName,
+          text: m.text,
+          createdAt: m.createdAt,
+          mine: m.senderName === myName,
+        }));
+      // History is chronological; show it before any live messages already in.
+      return [...fromHistory, ...prev];
+    });
+  }, [history, myName]);
+
   // Subscribe to inbound chat + typing events.
   useEffect(() => {
     if (!socket) return;
@@ -39,10 +66,10 @@ export function ChatPanel({ socket, code, myName }: ChatPanelProps) {
       text: string;
       createdAt: string;
     }) => {
-      setMessages((prev) => [
-        ...prev,
-        { ...m, mine: m.senderName === myName },
-      ]);
+      setMessages((prev) => {
+        if (prev.some((x) => x.id === m.id)) return prev; // dedupe
+        return [...prev, { ...m, mine: m.senderName === myName }];
+      });
     };
 
     const onTyping = ({ user }: { user: { name: string } }) => {

@@ -41,6 +41,7 @@ meetingSchema.methods.toPublic = function () {
     id: this.code, // frontend treats this human-readable string as the id
     _id: this._id.toString(),
     code: this.code,
+    host: this.host?.toString() ?? "", // lets the client gate host-only controls
     title: this.title,
     date: this.date,
     time: this.time,

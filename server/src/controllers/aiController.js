@@ -1,6 +1,6 @@
 import Meeting from "../models/Meeting.js";
 import Summary from "../models/Summary.js";
-import { ApiError, asyncHandler } from "../utils/helpers.js";
+import { ApiError, asyncHandler, isMember } from "../utils/helpers.js";
 
 // --- Mock AI (default) ---------------------------------------------------
 // The frontend already ships with hardcoded AI text. These mocks produce the
@@ -67,6 +67,9 @@ async function callOpenAI(transcript, meeting) {
 export const generateSummary = asyncHandler(async (req, res) => {
   const meeting = await Meeting.findOne({ code: req.params.code });
   if (!meeting) throw new ApiError(404, "Meeting not found");
+  if (!isMember(meeting, req.user)) {
+    throw new ApiError(403, "You don't have access to this meeting");
+  }
 
   const transcript = req.body.transcript || "";
   const result = process.env.OPENAI_API_KEY
@@ -86,6 +89,9 @@ export const generateSummary = asyncHandler(async (req, res) => {
 export const getSummary = asyncHandler(async (req, res) => {
   const meeting = await Meeting.findOne({ code: req.params.code });
   if (!meeting) throw new ApiError(404, "Meeting not found");
+  if (!isMember(meeting, req.user)) {
+    throw new ApiError(403, "You don't have access to this meeting");
+  }
   const summary = await Summary.findOne({ meeting: meeting._id });
   if (!summary) throw new ApiError(404, "No summary generated yet");
   res.json({ success: true, summary: summary.toPublic() });
@@ -95,6 +101,10 @@ export const getSummary = asyncHandler(async (req, res) => {
 export const toggleActionItem = asyncHandler(async (req, res) => {
   const summary = await Summary.findById(req.params.id);
   if (!summary) throw new ApiError(404, "Summary not found");
+  const meeting = await Meeting.findById(summary.meeting);
+  if (!meeting || !isMember(meeting, req.user)) {
+    throw new ApiError(403, "You don't have access to this summary");
+  }
   const item = summary.actionItems.id(req.params.itemId);
   if (!item) throw new ApiError(404, "Action item not found");
   item.done = req.body.done ?? !item.done;
