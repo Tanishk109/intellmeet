@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   Meeting,
   Summary,
+  Task,
   User,
 } from "@/types";
 
@@ -58,6 +59,18 @@ export const aiApi = {
       .then((r) => r.data.summary),
   chat: (message: string) =>
     http.post<{ success: true; reply: string }>("/ai/chat", { message }).then((r) => r.data.reply),
+};
+
+export const taskApi = {
+  list: () =>
+    http.get<{ success: true; tasks: Task[] }>("/tasks").then((r) => r.data.tasks),
+  create: (body: Partial<Task>) =>
+    http.post<{ success: true; task: Task }>("/tasks", body).then((r) => r.data.task),
+  update: (id: string, body: Partial<Task>) =>
+    http.put<{ success: true; task: Task }>(`/tasks/${id}`, body).then((r) => r.data.task),
+  move: (id: string, body: { status?: Task["status"]; order?: number }) =>
+    http.patch<{ success: true; task: Task }>(`/tasks/${id}/move`, body).then((r) => r.data.task),
+  remove: (id: string) => http.delete(`/tasks/${id}`).then((r) => r.data),
 };
 
 export const miscApi = {

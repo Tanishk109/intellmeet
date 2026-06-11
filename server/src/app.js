@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/authRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import taskRoutes from "./routes/taskRoutes.js";
 import miscRoutes from "./routes/miscRoutes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
@@ -38,6 +39,7 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/meetings", meetingRoutes);
   app.use("/api/ai", aiRoutes);
+  app.use("/api/tasks", taskRoutes);
   app.use("/api", miscRoutes);
 
   app.use(notFound);

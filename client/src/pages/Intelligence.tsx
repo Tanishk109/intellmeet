@@ -9,13 +9,14 @@ import {
   Download,
   CircleUser,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { Card, Badge, Spinner } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select, Textarea } from "@/components/ui/Select";
 import { AccuracyRing } from "@/components/ui/AccuracyRing";
 import { useToast } from "@/components/ui/Toast";
-import { aiApi, meetingApi } from "@/api";
+import { aiApi, meetingApi, taskApi } from "@/api";
 import { apiErrorMessage } from "@/lib/http";
 import type { Summary } from "@/types";
 
@@ -73,6 +74,23 @@ export default function Intelligence() {
     mutationFn: ({ itemId, done }: { itemId: string; done: boolean }) =>
       aiApi.toggleActionItem(summary!.id, itemId, done),
     onSuccess: (s) => setSummary(s),
+    onError: (err) => push(apiErrorMessage(err), "error"),
+  });
+
+  // F03 -> F06 handoff: turn an AI action item into a board task.
+  const toBoard = useMutation({
+    mutationFn: (item: { text: string; assignee: string }) =>
+      taskApi.create({
+        title: item.text,
+        assignee: item.assignee,
+        status: "todo",
+        priority: "medium",
+        fromMeeting: selected,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tasks"] });
+      push("Added to board", "success");
+    },
     onError: (err) => push(apiErrorMessage(err), "error"),
   });
 
@@ -252,6 +270,18 @@ export default function Intelligence() {
                         <CircleUser className="size-3" /> {a.assignee}
                       </span>
                     </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toBoard.mutate({ text: a.text, assignee: a.assignee });
+                      }}
+                      className="shrink-0 rounded-md p-1 text-text-lo transition-colors hover:bg-ink-700 hover:text-signal-400"
+                      title="Add to project board"
+                      aria-label="Add to project board"
+                    >
+                      <Plus className="size-4" />
+                    </button>
                   </label>
                 ))}
               </div>

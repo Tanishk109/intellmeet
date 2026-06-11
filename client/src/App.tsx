@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -7,22 +7,40 @@ import {
 import { useAuth } from "@/stores/auth";
 import { RequireAuth } from "@/features/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
+import { Spinner } from "@/components/ui/Card";
 
-import Login from "@/pages/Login";
-import Signup from "@/pages/Signup";
-import ForgotPassword from "@/pages/ForgotPassword";
-import Dashboard from "@/pages/Dashboard";
-import Schedule from "@/pages/Schedule";
-import Meetings from "@/pages/Meetings";
-import MeetingRoom from "@/pages/MeetingRoom";
-import Intelligence from "@/pages/Intelligence";
-import { Placeholder } from "@/pages/Placeholder";
+// Route-level code splitting: each page becomes its own chunk so the initial
+// load stays small. Heavy deps (recharts on Analytics/Dashboard, socket.io +
+// WebRTC on MeetingRoom) are only fetched when that route is visited.
+const Login = lazy(() => import("@/pages/Login"));
+const Signup = lazy(() => import("@/pages/Signup"));
+const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Schedule = lazy(() => import("@/pages/Schedule"));
+const Meetings = lazy(() => import("@/pages/Meetings"));
+const MeetingRoom = lazy(() => import("@/pages/MeetingRoom"));
+const Intelligence = lazy(() => import("@/pages/Intelligence"));
+const Board = lazy(() => import("@/pages/Board"));
+const Analytics = lazy(() => import("@/pages/Analytics"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
+
+function PageFallback() {
+  return (
+    <div className="grid h-[60vh] place-items-center">
+      <Spinner className="size-6 text-signal-400" />
+    </div>
+  );
+}
+
+// Wrap a lazy element in Suspense so navigation shows a spinner while the
+// chunk downloads.
+const page = (el: React.ReactNode) => <Suspense fallback={<PageFallback />}>{el}</Suspense>;
 
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/app" replace /> },
-  { path: "/login", element: <Login /> },
-  { path: "/signup", element: <Signup /> },
-  { path: "/forgot-password", element: <ForgotPassword /> },
+  { path: "/login", element: page(<Login />) },
+  { path: "/signup", element: page(<Signup />) },
+  { path: "/forgot-password", element: page(<ForgotPassword />) },
   {
     path: "/app",
     element: (
@@ -31,14 +49,14 @@ const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: "meetings", element: <Meetings /> },
-      { path: "schedule", element: <Schedule /> },
-      { path: "room/:code", element: <MeetingRoom /> },
-      { path: "intelligence", element: <Intelligence /> },
-      { path: "board", element: <Placeholder title="Project Board" /> },
-      { path: "analytics", element: <Placeholder title="Analytics" /> },
-      { path: "notifications", element: <Placeholder title="Notifications" /> },
+      { index: true, element: page(<Dashboard />) },
+      { path: "meetings", element: page(<Meetings />) },
+      { path: "schedule", element: page(<Schedule />) },
+      { path: "room/:code", element: page(<MeetingRoom />) },
+      { path: "intelligence", element: page(<Intelligence />) },
+      { path: "board", element: page(<Board />) },
+      { path: "analytics", element: page(<Analytics />) },
+      { path: "notifications", element: page(<Notifications />) },
     ],
   },
   { path: "*", element: <Navigate to="/app" replace /> },
@@ -46,7 +64,6 @@ const router = createBrowserRouter([
 
 export function App() {
   const bootstrap = useAuth((s) => s.bootstrap);
-  // On boot, try to restore a session from the refresh cookie.
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
