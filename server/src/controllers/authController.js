@@ -19,7 +19,7 @@ function refreshCookieOptions() {
   };
 }
 
-async function issueTokens(res, user) {
+export async function issueTokens(res, user) {
   const accessToken = signAccessToken(user._id.toString());
   const refreshToken = signRefreshToken(user._id.toString());
   user.refreshTokenHash = await bcrypt.hash(refreshToken, 10);

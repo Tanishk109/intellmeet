@@ -3,6 +3,20 @@ import Notification from "../models/Notification.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import { ApiError, asyncHandler, isHost, isMember } from "../utils/helpers.js";
+import { sendEmail, meetingInviteEmail } from "../utils/mailer.js";
+
+// Split the invitees string into clean, unique, valid email addresses.
+function parseEmails(raw) {
+  if (!raw) return [];
+  return [
+    ...new Set(
+      String(raw)
+        .split(/[,\s]+/)
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e))
+    ),
+  ];
+}
 
 // GET /api/meetings  -> list meetings for the current user (host or participant)
 export const listMeetings = asyncHandler(async (req, res) => {
@@ -75,7 +89,35 @@ export const createMeeting = asyncHandler(async (req, res) => {
   ];
   await Notification.insertMany(notifications);
 
-  res.status(201).json({ success: true, meeting: meeting.toPublic() });
+  // Fire off invite emails to each valid invitee. Sends never throw (the mailer
+  // degrades to console logging when no provider key is set), so a failed email
+  // can't break meeting creation. We report how many actually went out.
+  const recipients = parseEmails(emails);
+  let invitedCount = 0;
+  if (recipients.length) {
+    const appUrl =
+      process.env.CLIENT_ORIGIN?.split(",")[0]?.trim() || "http://localhost:5173";
+    const joinUrl = `${appUrl}/app/room/${meeting.code}`;
+    const { subject, html, text } = meetingInviteEmail({
+      hostName: req.user.name,
+      title,
+      date,
+      time,
+      type: type || "Team Meeting",
+      code: meeting.code,
+      joinUrl,
+    });
+    const results = await Promise.all(
+      recipients.map((to) => sendEmail({ to, subject, html, text }))
+    );
+    invitedCount = results.filter((r) => r.sent).length;
+  }
+
+  res.status(201).json({
+    success: true,
+    meeting: meeting.toPublic(),
+    invited: { total: recipients.length, sent: invitedCount },
+  });
 });
 
 // PUT /api/meetings/:code

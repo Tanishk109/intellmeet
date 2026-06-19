@@ -15,6 +15,7 @@ import { Spinner } from "@/components/ui/Card";
 const Login = lazy(() => import("@/pages/Login"));
 const Signup = lazy(() => import("@/pages/Signup"));
 const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
+const OAuthCallback = lazy(() => import("@/pages/OAuthCallback"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Schedule = lazy(() => import("@/pages/Schedule"));
 const Meetings = lazy(() => import("@/pages/Meetings"));
@@ -41,6 +42,7 @@ const router = createBrowserRouter([
   { path: "/login", element: page(<Login />) },
   { path: "/signup", element: page(<Signup />) },
   { path: "/forgot-password", element: page(<ForgotPassword />) },
+  { path: "/oauth/callback", element: page(<OAuthCallback />) },
   {
     path: "/app",
     element: (

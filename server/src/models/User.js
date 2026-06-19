@@ -12,7 +12,18 @@ const userSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
-    password: { type: String, required: true, minlength: 6, select: false },
+    // Password is required only for local (email/password) accounts. OAuth
+    // users (Google) authenticate with the provider and have no password.
+    password: {
+      type: String,
+      minlength: 6,
+      select: false,
+      required: function () {
+        return this.authProvider === "local";
+      },
+    },
+    authProvider: { type: String, enum: ["local", "google"], default: "local" },
+    googleId: { type: String, default: null, index: true, sparse: true },
     avatar: { type: String, default: "" },
     role: { type: String, enum: ["Admin", "Member"], default: "Member" },
     // Stored as a hash; rotated on logout / password change.
@@ -29,6 +40,8 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.methods.comparePassword = function (candidate) {
+  // OAuth accounts have no password — they can't log in via the local form.
+  if (!this.password) return Promise.resolve(false);
   return bcrypt.compare(candidate, this.password);
 };
 

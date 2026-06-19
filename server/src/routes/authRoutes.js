@@ -8,6 +8,7 @@ import {
   me,
   forgotPassword,
 } from "../controllers/authController.js";
+import { googleStart, googleCallback } from "../controllers/googleController.js";
 import { protect } from "../middleware/auth.js";
 
 const router = Router();
@@ -27,5 +28,9 @@ router.post("/forgot-password", authLimiter, forgotPassword);
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 router.get("/me", protect, me);
+
+// Google OAuth (no rate limiter — these are browser redirects, not form posts).
+router.get("/google", googleStart);
+router.get("/google/callback", googleCallback);
 
 export default router;

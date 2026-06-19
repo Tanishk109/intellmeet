@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { authApi } from "@/api";
 import { useAuth } from "@/stores/auth";
 import { apiErrorMessage } from "@/lib/http";
+import { GoogleButton } from "@/components/GoogleButton";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -46,7 +47,14 @@ export default function Login() {
         Welcome back. Enter your details to continue.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-4" noValidate>
+      <div className="mt-8">
+        <GoogleButton label="Sign in with Google" />
+      </div>
+      <div className="my-5 flex items-center gap-3 text-xs text-text-lo">
+        <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+      </div>
+
+      <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div>
           <Label htmlFor="email">Email</Label>
           <Input

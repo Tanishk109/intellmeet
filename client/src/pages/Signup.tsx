@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { authApi } from "@/api";
 import { useAuth } from "@/stores/auth";
 import { apiErrorMessage } from "@/lib/http";
+import { GoogleButton } from "@/components/GoogleButton";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -46,7 +47,14 @@ export default function Signup() {
         Start running smarter meetings in minutes.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-4" noValidate>
+      <div className="mt-8">
+        <GoogleButton label="Sign up with Google" />
+      </div>
+      <div className="my-5 flex items-center gap-3 text-xs text-text-lo">
+        <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+      </div>
+
+      <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div>
           <Label htmlFor="name">Full name</Label>
           <Input id="name" placeholder="Tanishk Mittal" value={form.name} onChange={set("name")} />
