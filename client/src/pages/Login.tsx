@@ -18,6 +18,19 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [params, setParams] = useSearchParams();
+
+  useEffect(() => {
+    const oauth = params.get("oauth");
+    if (!oauth) return;
+    if (oauth === "unavailable") {
+      push("Google sign-in isn't set up yet — use email and password.", "error");
+    } else if (oauth === "failed") {
+      push("Google sign-in failed. Please try again.", "error");
+    }
+    params.delete("oauth");
+    setParams(params, { replace: true });
+  }, [params, setParams, push]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
