@@ -1,13 +1,6 @@
-import { useMemo, useState, type DragEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  KanbanSquare,
-  Plus,
-  Trash2,
-  GripVertical,
-  Video as VideoIcon,
-  X,
-} from "lucide-react";
+import { KanbanSquare, Plus, Trash2, GripVertical, Video as VideoIcon, X } from "lucide-react";
 import { Card, Spinner } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input, Label } from "@/components/ui/Input";
@@ -15,7 +8,9 @@ import { Select, Textarea } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/Toast";
 import { taskApi } from "@/api";
 import { apiErrorMessage } from "@/lib/http";
+import { createSocket, type AppSocket } from "@/lib/socket";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/stores/auth";
 import type { Task, TaskPriority, TaskStatus } from "@/types";
 
 const COLUMNS: { id: TaskStatus; label: string; accent: string }[] = [
@@ -33,18 +28,41 @@ const priorityStyle: Record<TaskPriority, string> = {
 export default function Board() {
   const qc = useQueryClient();
   const push = useToast((s) => s.push);
+  const user = useAuth((s) => s.user);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<TaskStatus | null>(null);
   const [adding, setAdding] = useState(false);
+  const [socket, setSocket] = useState<AppSocket | null>(null);
+  const workspaceId = user?.id ?? "";
 
   const { data: tasks, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: taskApi.list });
+
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    const nextSocket = createSocket();
+    nextSocket.connect();
+    nextSocket.emit("workspace:join", { workspaceId });
+    nextSocket.on("task:changed", () => {
+      void qc.invalidateQueries({ queryKey: ["tasks"] });
+    });
+    setSocket(nextSocket);
+
+    return () => {
+      nextSocket.off("task:changed");
+      nextSocket.disconnect();
+      setSocket(null);
+    };
+  }, [qc, workspaceId]);
+
+  const emitTaskChanged = (task: Task) => {
+    if (workspaceId) socket?.emit("task:changed", { workspaceId, task });
+  };
 
   const byColumn = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = { todo: [], in_progress: [], done: [] };
     (tasks ?? []).forEach((t) => map[t.status].push(t));
-    (Object.keys(map) as TaskStatus[]).forEach((k) =>
-      map[k].sort((a, b) => a.order - b.order)
-    );
+    (Object.keys(map) as TaskStatus[]).forEach((k) => map[k].sort((a, b) => a.order - b.order));
     return map;
   }, [tasks]);
 
@@ -60,6 +78,7 @@ export default function Board() {
       );
       return { prev };
     },
+    onSuccess: emitTaskChanged,
     onError: (err, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(["tasks"], ctx.prev);
       push(apiErrorMessage(err), "error");
@@ -150,9 +169,7 @@ export default function Board() {
                         <p
                           className={cn(
                             "text-sm font-medium",
-                            task.status === "done"
-                              ? "text-text-lo line-through"
-                              : "text-text-hi"
+                            task.status === "done" ? "text-text-lo line-through" : "text-text-hi"
                           )}
                         >
                           {task.title}
@@ -203,12 +220,22 @@ export default function Board() {
         </div>
       )}
 
-      {adding && <AddTaskDialog onClose={() => setAdding(false)} />}
+      {adding && (
+        <AddTaskDialog onClose={() => setAdding(false)} socket={socket} workspaceId={workspaceId} />
+      )}
     </div>
   );
 }
 
-function AddTaskDialog({ onClose }: { onClose: () => void }) {
+function AddTaskDialog({
+  onClose,
+  socket,
+  workspaceId,
+}: {
+  onClose: () => void;
+  socket: AppSocket | null;
+  workspaceId: string;
+}) {
   const qc = useQueryClient();
   const push = useToast((s) => s.push);
   const [form, setForm] = useState({
@@ -225,8 +252,9 @@ function AddTaskDialog({ onClose }: { onClose: () => void }) {
         ...form,
         assignee: form.assignee.trim() || "Unassigned",
       }),
-    onSuccess: () => {
+    onSuccess: (task) => {
       void qc.invalidateQueries({ queryKey: ["tasks"] });
+      if (workspaceId) socket?.emit("task:changed", { workspaceId, task });
       push("Task created", "success");
       onClose();
     },
@@ -247,11 +275,7 @@ function AddTaskDialog({ onClose }: { onClose: () => void }) {
       <Card className="w-full max-w-md animate-rise p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-text-hi">New task</h2>
-          <button
-            onClick={onClose}
-            className="text-text-lo hover:text-text-hi"
-            aria-label="Close"
-          >
+          <button onClick={onClose} className="text-text-lo hover:text-text-hi" aria-label="Close">
             <X className="size-5" />
           </button>
         </div>

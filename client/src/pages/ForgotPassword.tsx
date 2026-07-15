@@ -38,8 +38,8 @@ export default function ForgotPassword() {
           </div>
           <h1 className="mt-4 font-display text-xl font-bold text-text-hi">Check your email</h1>
           <p className="mt-2 text-sm text-text-mid">
-            If an account exists for <span className="text-text-hi">{email}</span>, a reset link
-            is on its way.
+            If an account exists for <span className="text-text-hi">{email}</span>, a reset link is
+            on its way.
           </p>
           <Link to="/login">
             <Button variant="outline" className="mt-6 w-full">

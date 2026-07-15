@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Copy,
   Sparkles,
+  Film,
 } from "lucide-react";
 import { Card, Badge, Spinner } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -20,7 +21,13 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import { meetingApi } from "@/api";
 import { apiErrorMessage } from "@/lib/http";
-import { formatWhen, statusTone } from "@/lib/meetings";
+import {
+  isMeetingJoinable,
+  meetingTimeValue,
+  minutesUntilClose,
+  minutesUntilOpen,
+} from "@/lib/meetingState";
+import { formatMeetingWhen, statusTone } from "@/lib/meetings";
 import type { Meeting, MeetingStatus } from "@/types";
 
 type Filter = "all" | MeetingStatus;
@@ -68,9 +75,20 @@ export default function Meetings() {
       list = list.filter(
         (m) => m.title.toLowerCase().includes(q) || m.code.toLowerCase().includes(q)
       );
-    // Live first, then scheduled, then ended.
+    // Live first, then scheduled, then ended. Within each state, use the actual
+    // scheduled timestamp instead of creation order.
     const order: Record<MeetingStatus, number> = { live: 0, scheduled: 1, ended: 2 };
-    return [...list].sort((a, b) => order[a.status] - order[b.status]);
+    return [...list].sort((a, b) => {
+      const state = order[a.status] - order[b.status];
+      if (state) return state;
+      if (a.status === "ended") {
+        return (
+          new Date(b.endedAt ?? b.createdAt).getTime() -
+          new Date(a.endedAt ?? a.createdAt).getTime()
+        );
+      }
+      return meetingTimeValue(a) - meetingTimeValue(b);
+    });
   }, [meetings, filter, query]);
 
   const copyCode = (code: string) => {
@@ -140,63 +158,13 @@ export default function Meetings() {
       ) : (
         <div className="grid gap-3">
           {filtered.map((m) => (
-            <Card
+            <MeetingCard
               key={m.id}
-              className="flex flex-wrap items-center gap-4 p-4 transition-colors hover:border-ink-600"
-            >
-              <div className="grid size-11 shrink-0 place-items-center rounded-lg bg-ink-800 text-signal-400">
-                <Video className="size-5" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="truncate font-medium text-text-hi">{m.title}</h3>
-                  <Badge tone={statusTone(m.status)} className="capitalize">
-                    {m.status === "live" && <Radio className="size-3" />}
-                    {m.status}
-                  </Badge>
-                </div>
-                <div className="mt-0.5 flex items-center gap-3 text-xs text-text-lo">
-                  <span>{formatWhen(m.date, m.time)}</span>
-                  <span>·</span>
-                  <span>{m.type}</span>
-                  <button
-                    onClick={() => copyCode(m.code)}
-                    className="inline-flex items-center gap-1 font-mono hover:text-text-mid"
-                  >
-                    {m.code} <Copy className="size-3" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {m.status === "ended" && (
-                  <Button
-                    size="sm"
-                    variant="ai"
-                    onClick={() => navigate(`/app/intelligence?m=${m.code}`)}
-                  >
-                    <Sparkles className="size-4" /> Summary
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant={m.status === "ended" ? "outline" : "primary"}
-                  onClick={() => navigate(`/app/room/${m.code}`)}
-                >
-                  {m.status === "ended" ? "Review" : "Join"}
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-9 text-text-lo hover:text-danger-500"
-                  onClick={() => setToDelete(m)}
-                  aria-label="Delete meeting"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            </Card>
+              meeting={m}
+              copyCode={copyCode}
+              navigate={navigate}
+              setToDelete={setToDelete}
+            />
           ))}
         </div>
       )}
@@ -206,8 +174,8 @@ export default function Meetings() {
         title="Delete this meeting?"
         description={
           <>
-            <span className="text-text-hi">{toDelete?.title}</span> will be permanently
-            removed. This can't be undone.
+            <span className="text-text-hi">{toDelete?.title}</span> will be permanently removed.
+            This can't be undone.
           </>
         }
         confirmLabel="Delete"
@@ -216,5 +184,93 @@ export default function Meetings() {
         onCancel={() => setToDelete(null)}
       />
     </div>
+  );
+}
+
+function MeetingCard({
+  meeting,
+  copyCode,
+  navigate,
+  setToDelete,
+}: {
+  meeting: Meeting;
+  copyCode: (code: string) => void;
+  navigate: ReturnType<typeof useNavigate>;
+  setToDelete: (meeting: Meeting) => void;
+}) {
+  const joinable = isMeetingJoinable(meeting);
+  const graceMinutes = minutesUntilClose(meeting);
+  const opensIn = minutesUntilOpen(meeting);
+
+  return (
+    <Card className="flex flex-wrap items-center gap-4 p-4 transition-colors hover:border-ink-600">
+      <div className="grid size-11 shrink-0 place-items-center rounded-lg bg-ink-800 text-signal-400">
+        <Video className="size-5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="truncate font-medium text-text-hi">{meeting.title}</h3>
+          <Badge tone={statusTone(meeting.status)} className="capitalize">
+            {meeting.status === "live" && <Radio className="size-3" />}
+            {meeting.status}
+          </Badge>
+          {meeting.status === "ended" && joinable && (
+            <Badge tone="ai">Join open {graceMinutes}m</Badge>
+          )}
+          {meeting.status === "scheduled" && !joinable && (
+            <Badge tone="muted">Opens in {opensIn}m</Badge>
+          )}
+        </div>
+        <div className="mt-0.5 flex items-center gap-3 text-xs text-text-lo">
+          <span>{formatMeetingWhen(meeting)}</span>
+          <span>·</span>
+          <span>{meeting.type}</span>
+          <button
+            onClick={() => copyCode(meeting.code)}
+            className="inline-flex items-center gap-1 font-mono hover:text-text-mid"
+          >
+            {meeting.code} <Copy className="size-3" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {meeting.status === "ended" && (
+          <Button
+            size="sm"
+            variant="ai"
+            onClick={() => navigate(`/app/intelligence?m=${meeting.code}`)}
+          >
+            <Sparkles className="size-4" /> Summary
+          </Button>
+        )}
+        {meeting.recordingUrl && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => window.open(meeting.recordingUrl, "_blank", "noopener")}
+          >
+            <Film className="size-4" /> Recording
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant={joinable ? "primary" : "outline"}
+          onClick={() => navigate(`/app/room/${meeting.code}`)}
+        >
+          {joinable ? "Join" : meeting.status === "scheduled" ? "Not open" : "Details"}
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-9 text-text-lo hover:text-danger-500"
+          onClick={() => setToDelete(meeting)}
+          aria-label="Delete meeting"
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </Card>
   );
 }

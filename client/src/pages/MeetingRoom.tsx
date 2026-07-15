@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,23 +9,38 @@ import {
   MonitorUp,
   PhoneOff,
   Users,
+  CalendarClock,
+  ExternalLink,
+  FileText,
+  ListChecks,
   Radio,
   AlertTriangle,
   ArrowLeft,
   MessageSquare,
   Captions,
+  Circle,
+  Square,
   X,
 } from "lucide-react";
-import { Spinner, Badge } from "@/components/ui/Card";
+import { Spinner, Badge, Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { meetingApi } from "@/api";
+import { aiApi, meetingApi } from "@/api";
 import { useAuth } from "@/stores/auth";
 import { useWebRTC } from "@/features/meeting/useWebRTC";
 import { useCaptions } from "@/features/meeting/useCaptions";
 import { VideoTile } from "@/features/meeting/VideoTile";
 import { ChatPanel } from "@/features/meeting/ChatPanel";
+import { apiErrorMessage } from "@/lib/http";
+import {
+  isMeetingJoinable,
+  isMeetingOver,
+  minutesUntilClose,
+  minutesUntilOpen,
+} from "@/lib/meetingState";
+import { formatMeetingWhen, parseEmails } from "@/lib/meetings";
 import { cn } from "@/lib/utils";
+import type { Meeting, Summary } from "@/types";
 
 /** Pick a grid column count that keeps tiles reasonably sized. */
 function gridCols(n: number): string {
@@ -74,10 +89,24 @@ export default function MeetingRoom() {
   const push = useToast((s) => s.push);
   const user = useAuth((s) => s.user);
 
-  const { data: meeting, isLoading, isError } = useQuery({
+  const {
+    data: meeting,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["meeting", code],
     queryFn: () => meetingApi.get(code!),
     enabled: !!code,
+  });
+
+  const joinable = meeting ? isMeetingJoinable(meeting) : false;
+  const finalized = meeting ? isMeetingOver(meeting) : false;
+
+  const { data: summary } = useQuery({
+    queryKey: ["summary", code],
+    queryFn: () => aiApi.getSummary(code!),
+    enabled: !!code && finalized,
+    retry: false,
   });
 
   const {
@@ -93,11 +122,15 @@ export default function MeetingRoom() {
     toggleCamera,
     toggleShare,
     leave,
-  } = useWebRTC(code, user?.name ?? "Guest");
+  } = useWebRTC(joinable ? code : undefined, user?.name ?? "Guest");
 
   const captions = useCaptions(socket, code ?? "", user?.name ?? "Guest");
   const [chatOpen, setChatOpen] = useState(false);
   const [captionsVisible, setCaptionsVisible] = useState(true);
+  const [recording, setRecording] = useState(false);
+  const [endingMeeting, setEndingMeeting] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
 
   const startMutation = useMutation({
     mutationFn: () => meetingApi.start(code!),
@@ -118,9 +151,101 @@ export default function MeetingRoom() {
     },
   });
 
+  const recordingMutation = useMutation({
+    mutationFn: (blob: Blob) => meetingApi.uploadRecording(code!, blob),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["meeting", code] });
+      void qc.invalidateQueries({ queryKey: ["meetings"] });
+      push("Recording uploaded successfully", "success");
+    },
+    onError: (err) => push(apiErrorMessage(err), "error"),
+  });
+
+  const transcriptText = useMemo(
+    () => captions.captions.map((caption) => `${caption.name}: ${caption.text}`).join("\n"),
+    [captions.captions]
+  );
+
   const handleLeave = () => {
     leave();
     navigate("/app/meetings");
+  };
+
+  const startRecording = async () => {
+    try {
+      if (!window.MediaRecorder) {
+        push("Recording is not supported in this browser", "error");
+        return;
+      }
+
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+
+      recordingChunksRef.current = [];
+      const mimeType = ["video/webm;codecs=vp9,opus", "video/webm", "video/mp4"].find((type) =>
+        MediaRecorder.isTypeSupported(type)
+      );
+      const options = mimeType ? { mimeType } : undefined;
+      const recorder = new MediaRecorder(displayStream, options);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        setRecording(false);
+        const blob = new Blob(recordingChunksRef.current, {
+          type: (recorder.mimeType || mimeType || "video/webm").split(";")[0],
+        });
+        if (blob.size > 0) recordingMutation.mutate(blob);
+        else push("No recording data was captured", "error");
+        displayStream.getTracks().forEach((track) => track.stop());
+      };
+
+      displayStream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        if (recorder.state !== "inactive") recorder.stop();
+        recorderRef.current = null;
+      });
+
+      recorder.start(1000);
+      recorderRef.current = recorder;
+      setRecording(true);
+      push("Recording started", "info");
+    } catch {
+      push("Screen recording permission was denied", "error");
+    }
+  };
+
+  const stopRecording = () => {
+    if (!recorderRef.current) return;
+    recorderRef.current.stop();
+    recorderRef.current = null;
+    setRecording(false);
+  };
+
+  const handleEndMeeting = async () => {
+    if (endingMeeting) return;
+    setEndingMeeting(true);
+
+    if (recording) stopRecording();
+
+    if (transcriptText.trim()) {
+      try {
+        await meetingApi.saveTranscript(code!, transcriptText);
+        await aiApi.generateSummary(code!, transcriptText);
+        void qc.invalidateQueries({ queryKey: ["summary", code] });
+      } catch {
+        push("Transcript could not be saved before ending", "error");
+      }
+    }
+
+    try {
+      await endMutation.mutateAsync();
+    } finally {
+      setEndingMeeting(false);
+    }
   };
 
   const totalTiles = remotePeers.length + 1;
@@ -153,6 +278,20 @@ export default function MeetingRoom() {
   // actual host so non-hosts don't get 403s.
   const isHost = !!user && meeting.host === user.id;
 
+  if (finalized) {
+    return (
+      <MeetingDetails
+        meeting={meeting}
+        summary={summary ?? null}
+        onBack={() => navigate("/app/meetings")}
+      />
+    );
+  }
+
+  if (meeting.status === "scheduled" && !joinable) {
+    return <MeetingNotOpen meeting={meeting} onBack={() => navigate("/app/meetings")} />;
+  }
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5">
       {/* Header */}
@@ -175,6 +314,11 @@ export default function MeetingRoom() {
               )}
             </div>
             <p className="font-mono text-xs text-text-lo">{meeting.code}</p>
+            {meeting.status === "ended" && joinable && (
+              <p className="mt-1 text-xs text-ai-400">
+                Join remains open for {minutesUntilClose(meeting)} more minutes.
+              </p>
+            )}
           </div>
         </div>
 
@@ -183,13 +327,22 @@ export default function MeetingRoom() {
             <Users className="size-4" /> {participantCount}
           </span>
           {isHost && meeting.status === "scheduled" && (
-            <Button size="sm" onClick={() => startMutation.mutate()} disabled={startMutation.isPending}>
+            <Button
+              size="sm"
+              onClick={() => startMutation.mutate()}
+              disabled={startMutation.isPending || !joinable}
+            >
               {startMutation.isPending ? <Spinner /> : "Start meeting"}
             </Button>
           )}
           {isHost && meeting.status === "live" && (
-            <Button size="sm" variant="danger" onClick={() => endMutation.mutate()} disabled={endMutation.isPending}>
-              {endMutation.isPending ? <Spinner /> : "End for all"}
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => void handleEndMeeting()}
+              disabled={endMutation.isPending || endingMeeting}
+            >
+              {endMutation.isPending || endingMeeting ? <Spinner /> : "End for all"}
             </Button>
           )}
         </div>
@@ -211,7 +364,8 @@ export default function MeetingRoom() {
               muted
               isLocal
               micOn={micOn}
-              cameraOn={cameraOn}
+              cameraOn={cameraOn || sharing}
+              mirror={!sharing}
             />
             {remotePeers.map((peer) => (
               <VideoTile
@@ -299,6 +453,34 @@ export default function MeetingRoom() {
           </ControlButton>
         )}
 
+        {isHost && meeting.status === "live" && (
+          <ControlButton
+            active={!recording}
+            onClick={
+              recordingMutation.isPending
+                ? () => undefined
+                : recording
+                  ? stopRecording
+                  : () => void startRecording()
+            }
+            label={
+              recordingMutation.isPending
+                ? "Uploading recording"
+                : recording
+                  ? "Stop recording"
+                  : "Start recording"
+            }
+          >
+            {recordingMutation.isPending ? (
+              <Spinner className="size-5" />
+            ) : recording ? (
+              <Square className="size-5 text-danger-500" />
+            ) : (
+              <Circle className="size-5" />
+            )}
+          </ControlButton>
+        )}
+
         {/* Chat toggle */}
         <ControlButton
           active={!chatOpen}
@@ -312,6 +494,158 @@ export default function MeetingRoom() {
         <ControlButton danger onClick={handleLeave} label="Leave meeting">
           <PhoneOff className="size-5" />
         </ControlButton>
+      </div>
+    </div>
+  );
+}
+
+function MeetingNotOpen({ meeting, onBack }: { meeting: Meeting; onBack: () => void }) {
+  return (
+    <div className="mx-auto grid min-h-[70vh] max-w-lg place-items-center">
+      <Card className="flex flex-col items-center gap-4 p-10 text-center">
+        <div className="grid size-12 place-items-center rounded-xl bg-ai-500/15 text-ai-400">
+          <CalendarIcon />
+        </div>
+        <div>
+          <h1 className="font-display text-xl font-bold text-text-hi">{meeting.title}</h1>
+          <p className="mt-2 text-sm text-text-mid">
+            This meeting is scheduled for {formatMeetingWhen(meeting)}.
+          </p>
+          <p className="mt-2 text-xs text-text-lo">
+            The room opens 15 minutes before start time. Opens in {minutesUntilOpen(meeting)}{" "}
+            minutes.
+          </p>
+        </div>
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="size-4" /> Back to meetings
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
+function CalendarIcon() {
+  return <CalendarClock className="size-6" />;
+}
+
+function MeetingDetails({
+  meeting,
+  summary,
+  onBack,
+}: {
+  meeting: Meeting;
+  summary: Summary | null;
+  onBack: () => void;
+}) {
+  const attendees = meeting.attendees ?? [];
+  const invited = parseEmails(meeting.emails);
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to meetings">
+            <ArrowLeft className="size-5" />
+          </Button>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-2xl font-bold text-text-hi">{meeting.title}</h1>
+              <Badge tone="muted">Over</Badge>
+            </div>
+            <p className="mt-1 text-sm text-text-mid">{formatMeetingWhen(meeting)}</p>
+            <p className="mt-1 font-mono text-xs text-text-lo">{meeting.code}</p>
+          </div>
+        </div>
+        {meeting.recordingUrl && (
+          <Button onClick={() => window.open(meeting.recordingUrl, "_blank", "noopener")}>
+            <ExternalLink className="size-4" /> Open recording
+          </Button>
+        )}
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          <Card className="p-5">
+            <h2 className="flex items-center gap-2 font-display font-semibold text-text-hi">
+              <ListChecks className="size-4 text-signal-400" /> Agenda
+            </h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-text-mid">
+              {meeting.description || "No agenda was added for this meeting."}
+            </p>
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="flex items-center gap-2 font-display font-semibold text-text-hi">
+              <FileText className="size-4 text-ai-400" /> Transcript
+            </h2>
+            <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border border-line bg-ink-950/40 p-4 text-xs leading-relaxed text-text-mid">
+              {summary?.transcript || "No transcript was captured for this meeting."}
+            </pre>
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="font-display font-semibold text-text-hi">Summary</h2>
+            <p className="mt-3 text-sm leading-relaxed text-text-mid">
+              {summary?.summary || "No summary has been generated yet."}
+            </p>
+          </Card>
+        </div>
+
+        <div className="space-y-5">
+          <Card className="p-5">
+            <h2 className="flex items-center gap-2 font-display font-semibold text-text-hi">
+              <Users className="size-4 text-signal-400" /> Attendees
+            </h2>
+            <div className="mt-3 space-y-2">
+              {attendees.length ? (
+                attendees.map((attendee) => (
+                  <div
+                    key={`${attendee.user}-${attendee.joinedAt}`}
+                    className="rounded-lg border border-line bg-ink-900/40 p-3"
+                  >
+                    <div className="text-sm font-medium text-text-hi">{attendee.name}</div>
+                    <div className="text-xs text-text-lo">{attendee.email}</div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-text-lo">No attendees were recorded.</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="font-display font-semibold text-text-hi">Invited</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {invited.length ? (
+                invited.map((email) => (
+                  <span
+                    key={email}
+                    className="rounded-full border border-line bg-ink-900 px-2.5 py-1 text-xs text-text-mid"
+                  >
+                    {email}
+                  </span>
+                ))
+              ) : (
+                <p className="text-sm text-text-lo">No invitees were added.</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="font-display font-semibold text-text-hi">Recording</h2>
+            {meeting.recordingUrl ? (
+              <Button
+                className="mt-3 w-full"
+                variant="outline"
+                onClick={() => window.open(meeting.recordingUrl, "_blank", "noopener")}
+              >
+                <ExternalLink className="size-4" /> Open recording
+              </Button>
+            ) : (
+              <p className="mt-3 text-sm text-text-lo">No recording was saved.</p>
+            )}
+          </Card>
+        </div>
       </div>
     </div>
   );

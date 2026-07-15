@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const stats = [
   { value: "40–60%", label: "less follow-up time" },
@@ -11,6 +12,10 @@ const stats = [
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
+      <div className="fixed right-4 top-4 z-20">
+        <ThemeToggle compact />
+      </div>
+
       {/* Brand panel */}
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-line p-10 lg:flex">
         <div
@@ -23,13 +28,12 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <Logo className="relative" />
         <div className="relative max-w-md">
           <p className="font-display text-3xl font-semibold leading-tight text-text-hi">
-            Turn every meeting into an{" "}
-            <span className="text-signal-400">actionable</span>,{" "}
+            Turn every meeting into an <span className="text-signal-400">actionable</span>,{" "}
             <span className="text-ai-400">trackable</span> event.
           </p>
           <p className="mt-4 text-text-mid">
-            Real-time video, AI summaries, smart action items, and seamless team
-            collaboration — all in one platform.
+            Real-time video, AI summaries, smart action items, and seamless team collaboration — all
+            in one platform.
           </p>
           <div className="mt-8 flex gap-6">
             {stats.map((s) => (

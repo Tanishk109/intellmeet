@@ -29,6 +29,7 @@ summarySchema.methods.toPublic = function () {
   return {
     id: this._id.toString(),
     meeting: this.meeting.toString(),
+    transcript: this.transcript,
     summary: this.summary,
     keyPoints: this.keyPoints,
     actionItems: this.actionItems.map((a) => ({

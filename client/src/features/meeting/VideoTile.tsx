@@ -9,6 +9,7 @@ interface VideoTileProps {
   micOn?: boolean;
   cameraOn?: boolean;
   isLocal?: boolean;
+  mirror?: boolean;
 }
 
 export function VideoTile({
@@ -18,6 +19,7 @@ export function VideoTile({
   micOn = true,
   cameraOn = true,
   isLocal,
+  mirror = isLocal,
 }: VideoTileProps) {
   const ref = useRef<HTMLVideoElement>(null);
 
@@ -45,7 +47,7 @@ export function VideoTile({
         muted={muted}
         className={cn(
           "size-full object-cover",
-          isLocal && "-scale-x-100", // mirror own camera
+          mirror && "-scale-x-100", // mirror own camera, but never mirror screen shares
           !showVideo && "hidden"
         )}
       />

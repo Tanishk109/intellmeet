@@ -1,4 +1,4 @@
-import type { MeetingStatus, MeetingType } from "@/types";
+import type { Meeting, MeetingStatus, MeetingType } from "@/types";
 
 export const MEETING_TYPES: MeetingType[] = [
   "Team Meeting",
@@ -30,6 +30,22 @@ export function formatWhen(date: string, time: string): string {
   } catch {
     return `${date} · ${time}`;
   }
+}
+
+export function formatMeetingWhen(meeting: Meeting): string {
+  if (meeting.scheduledAt) {
+    const dt = new Date(meeting.scheduledAt);
+    if (!Number.isNaN(dt.getTime())) {
+      return dt.toLocaleString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    }
+  }
+  return formatWhen(meeting.date, meeting.time);
 }
 
 /** Split the comma/space separated emails string into clean chips. */

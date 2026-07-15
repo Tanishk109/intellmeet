@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Video,
+  Film,
   CalendarPlus,
   Sparkles,
   KanbanSquare,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/Button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/stores/auth";
 import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,7 @@ import { cn } from "@/lib/utils";
 const nav = [
   { to: "/app", end: true, icon: LayoutDashboard, label: "Dashboard" },
   { to: "/app/meetings", icon: Video, label: "Meetings" },
+  { to: "/app/recordings", icon: Film, label: "Recordings" },
   { to: "/app/schedule", icon: CalendarPlus, label: "Schedule" },
   { to: "/app/intelligence", icon: Sparkles, label: "AI Intelligence" },
   { to: "/app/board", icon: KanbanSquare, label: "Project Board" },
@@ -72,21 +75,24 @@ export function AppShell() {
           ))}
         </nav>
 
-        <div className="mt-auto flex items-center gap-3 rounded-lg border border-line bg-ink-850/60 p-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-signal-500 to-signal-700 text-sm font-bold text-ink-950">
-            {initials}
+        <div className="mt-auto space-y-3">
+          <ThemeToggle />
+          <div className="flex items-center gap-3 rounded-lg border border-line bg-ink-850/60 p-3">
+            <div className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-signal-500 to-signal-700 text-sm font-bold text-ink-950">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-text-hi">{user?.name}</div>
+              <div className="truncate text-xs text-text-lo">{user?.role}</div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="text-text-lo transition-colors hover:text-danger-500"
+              aria-label="Sign out"
+            >
+              <LogOut className="size-4" />
+            </button>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-text-hi">{user?.name}</div>
-            <div className="truncate text-xs text-text-lo">{user?.role}</div>
-          </div>
-          <button
-            onClick={onLogout}
-            className="text-text-lo transition-colors hover:text-danger-500"
-            aria-label="Sign out"
-          >
-            <LogOut className="size-4" />
-          </button>
         </div>
       </aside>
 
@@ -95,9 +101,12 @@ export function AppShell() {
         {/* Mobile topbar */}
         <header className="flex items-center justify-between border-b border-line px-4 py-3 md:hidden">
           <Logo withText={false} />
-          <Button variant="ghost" size="sm" onClick={onLogout}>
-            <LogOut className="size-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle compact />
+            <Button variant="ghost" size="sm" onClick={onLogout}>
+              <LogOut className="size-4" />
+            </Button>
+          </div>
         </header>
         <main className="flex-1 p-5 sm:p-8">
           <Outlet />

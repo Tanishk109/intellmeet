@@ -1,13 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  BarChart3,
-  Video,
-  Clock,
-  TrendingUp,
-  Radio,
-  Download,
-} from "lucide-react";
+import { BarChart3, Video, Clock, TrendingUp, Radio, Download } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -114,7 +107,9 @@ export default function Analytics() {
           </div>
           <div>
             <h1 className="font-display text-2xl font-bold text-text-hi">Analytics & insights</h1>
-            <p className="text-sm text-text-mid">Meeting frequency, productivity, and engagement.</p>
+            <p className="text-sm text-text-mid">
+              Meeting frequency, productivity, and engagement.
+            </p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={exportCsv}>
@@ -124,7 +119,12 @@ export default function Analytics() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metric icon={Video} label="Total meetings" value={analytics.totalMeetings} />
-        <Metric icon={TrendingUp} label="Productivity" value={`${analytics.productivityScore}%`} tone="ai" />
+        <Metric
+          icon={TrendingUp}
+          label="Productivity"
+          value={`${analytics.productivityScore}%`}
+          tone="ai"
+        />
         <Metric icon={Clock} label="Avg duration" value={`${analytics.avgDurationMins}m`} />
         <Metric icon={Radio} label="Live now" value={analytics.liveMeetings} />
       </div>
@@ -138,8 +138,20 @@ export default function Analytics() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analytics.weekly}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e2840" vertical={false} />
-                <XAxis dataKey="day" stroke="#5d6b8a" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#5d6b8a" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <XAxis
+                  dataKey="day"
+                  stroke="#5d6b8a"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#5d6b8a"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
                 <Tooltip cursor={{ fill: "#1b254066" }} contentStyle={TOOLTIP} />
                 <Bar dataKey="meetings" radius={[6, 6, 0, 0]}>
                   {analytics.weekly.map((_, i) => (
@@ -203,8 +215,20 @@ export default function Analytics() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={analytics.weekly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e2840" vertical={false} />
-              <XAxis dataKey="day" stroke="#5d6b8a" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#5d6b8a" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+              <XAxis
+                dataKey="day"
+                stroke="#5d6b8a"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="#5d6b8a"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                allowDecimals={false}
+              />
               <Tooltip contentStyle={TOOLTIP} />
               <Line
                 type="monotone"

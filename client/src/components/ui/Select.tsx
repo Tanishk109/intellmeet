@@ -22,18 +22,19 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 );
 Select.displayName = "Select";
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className, ...props }, ref) => (
-    <textarea
-      ref={ref}
-      className={cn(
-        "w-full rounded-lg border border-line bg-ink-850/80 px-3.5 py-2.5 text-sm text-text-hi",
-        "placeholder:text-text-lo transition-colors resize-none",
-        "focus:border-signal-500 focus:outline-none focus:ring-2 focus:ring-signal-500/25",
-        className
-      )}
-      {...props}
-    />
-  )
-);
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className, ...props }, ref) => (
+  <textarea
+    ref={ref}
+    className={cn(
+      "w-full rounded-lg border border-line bg-ink-850/80 px-3.5 py-2.5 text-sm text-text-hi",
+      "placeholder:text-text-lo transition-colors resize-none",
+      "focus:border-signal-500 focus:outline-none focus:ring-2 focus:ring-signal-500/25",
+      className
+    )}
+    {...props}
+  />
+));
 Textarea.displayName = "Textarea";

@@ -56,9 +56,7 @@ export default function Login() {
   return (
     <AuthLayout>
       <h1 className="font-display text-2xl font-bold text-text-hi">Sign in</h1>
-      <p className="mt-1.5 text-sm text-text-mid">
-        Welcome back. Enter your details to continue.
-      </p>
+      <p className="mt-1.5 text-sm text-text-mid">Welcome back. Enter your details to continue.</p>
 
       <div className="mt-8">
         <GoogleButton label="Sign in with Google" />
@@ -96,7 +94,13 @@ export default function Login() {
           />
         </div>
         <Button type="submit" size="lg" className="w-full" disabled={loading}>
-          {loading ? <Spinner /> : <>Sign in <ArrowRight className="size-4" /></>}
+          {loading ? (
+            <Spinner />
+          ) : (
+            <>
+              Sign in <ArrowRight className="size-4" />
+            </>
+          )}
         </Button>
       </form>
 

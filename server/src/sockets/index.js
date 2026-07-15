@@ -3,6 +3,7 @@ import { verifyAccessToken } from "../utils/tokens.js";
 import User from "../models/User.js";
 import Meeting from "../models/Meeting.js";
 import Message from "../models/Message.js";
+import { isMember } from "../utils/helpers.js";
 
 // Tracks who is in each meeting room: roomCode -> Map(socketId -> {userId, name})
 const rooms = new Map();
@@ -20,7 +21,7 @@ export function initSockets(httpServer, allowedOrigin) {
       const payload = verifyAccessToken(token);
       const user = await User.findById(payload.sub);
       if (!user) return next(new Error("User not found"));
-      socket.user = { id: user._id.toString(), name: user.name };
+      socket.user = { id: user._id.toString(), name: user.name, email: user.email };
       next();
     } catch {
       next(new Error("Unauthorized socket"));
@@ -31,6 +32,33 @@ export function initSockets(httpServer, allowedOrigin) {
     // ---- Join a meeting room ----
     socket.on("meeting:join", async ({ code }) => {
       if (!code) return;
+      const meeting = await Meeting.findOne({ code });
+      if (!meeting || !isMember(meeting, { _id: socket.user.id, email: socket.user.email })) {
+        socket.emit("meeting:closed", { reason: "Meeting not found or access denied" });
+        return;
+      }
+      if (!meeting.canJoinNow()) {
+        socket.emit("meeting:closed", { reason: "This meeting is over" });
+        return;
+      }
+
+      const attendee = meeting.attendees.find(
+        (entry) => entry.user?.toString() === socket.user.id
+      );
+      if (attendee) {
+        attendee.name = socket.user.name;
+        attendee.email = socket.user.email;
+        attendee.leftAt = null;
+      } else {
+        meeting.attendees.push({
+          user: socket.user.id,
+          name: socket.user.name,
+          email: socket.user.email,
+          joinedAt: new Date(),
+        });
+      }
+      await meeting.save();
+
       socket.join(code);
       socket.data.room = code;
 
@@ -100,6 +128,15 @@ export function initSockets(httpServer, allowedOrigin) {
       });
     });
 
+    // ---- Board collaboration: a user's current board is treated as a workspace ----
+    socket.on("workspace:join", ({ workspaceId }) => {
+      if (workspaceId) socket.join(`workspace:${workspaceId}`);
+    });
+
+    socket.on("task:changed", ({ workspaceId, task }) => {
+      if (workspaceId) socket.to(`workspace:${workspaceId}`).emit("task:changed", task);
+    });
+
     // ---- Leave / disconnect cleanup ----
     const leave = () => {
       const code = socket.data.room;
@@ -107,6 +144,10 @@ export function initSockets(httpServer, allowedOrigin) {
       const room = rooms.get(code);
       if (room) {
         room.delete(socket.id);
+        void Meeting.updateOne(
+          { code, "attendees.user": socket.user.id },
+          { $set: { "attendees.$.leftAt": new Date() } }
+        );
         socket.to(code).emit("meeting:peer-left", { socketId: socket.id });
         io.to(code).emit("meeting:presence", {
           count: room.size,

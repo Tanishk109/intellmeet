@@ -12,8 +12,8 @@ const router = Router();
 router.use(protect);
 
 router.get("/notifications", listNotifications);
-router.patch("/notifications/:id/read", markRead);
 router.patch("/notifications/read-all", markAllRead);
+router.patch("/notifications/:id/read", markRead);
 router.get("/analytics", getAnalytics);
 router.put("/profile", updateProfile);
 

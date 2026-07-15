@@ -60,12 +60,7 @@ export function ChatPanel({ socket, code, myName }: ChatPanelProps) {
   useEffect(() => {
     if (!socket) return;
 
-    const onMessage = (m: {
-      id: string;
-      senderName: string;
-      text: string;
-      createdAt: string;
-    }) => {
+    const onMessage = (m: { id: string; senderName: string; text: string; createdAt: string }) => {
       setMessages((prev) => {
         if (prev.some((x) => x.id === m.id)) return prev; // dedupe
         return [...prev, { ...m, mine: m.senderName === myName }];
@@ -118,15 +113,11 @@ export function ChatPanel({ socket, code, myName }: ChatPanelProps) {
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 ? (
-          <p className="pt-8 text-center text-xs text-text-lo">
-            No messages yet. Say hello 👋
-          </p>
+          <p className="pt-8 text-center text-xs text-text-lo">No messages yet. Say hello 👋</p>
         ) : (
           messages.map((m) => (
             <div key={m.id} className={cn("flex flex-col", m.mine && "items-end")}>
-              {!m.mine && (
-                <span className="mb-0.5 px-1 text-xs text-text-lo">{m.senderName}</span>
-              )}
+              {!m.mine && <span className="mb-0.5 px-1 text-xs text-text-lo">{m.senderName}</span>}
               <div
                 className={cn(
                   "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm",

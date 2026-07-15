@@ -13,8 +13,8 @@ export function Placeholder({ title }: { title: string }) {
         </div>
         <h1 className="font-display text-xl font-bold text-text-hi">{title}</h1>
         <p className="max-w-sm text-sm text-text-mid">
-          This screen is part of the next build slice. The auth flow, app shell,
-          and dashboard are fully wired to the backend.
+          This screen is part of the next build slice. The auth flow, app shell, and dashboard are
+          fully wired to the backend.
         </p>
       </Card>
     </div>

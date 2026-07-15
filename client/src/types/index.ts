@@ -12,14 +12,17 @@ export interface User {
   createdAt?: string;
 }
 
-export type MeetingType =
-  | "Team Meeting"
-  | "Client Meeting"
-  | "1:1"
-  | "Standup"
-  | "Other";
+export type MeetingType = "Team Meeting" | "Client Meeting" | "1:1" | "Standup" | "Other";
 
 export type MeetingStatus = "scheduled" | "live" | "ended";
+
+export interface MeetingAttendee {
+  user: string;
+  name: string;
+  email: string;
+  joinedAt: string;
+  leftAt?: string | null;
+}
 
 export interface Meeting {
   id: string; // human-readable MT-xxxx code (matches backend)
@@ -29,11 +32,18 @@ export interface Meeting {
   title: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
+  scheduledAt?: string | null;
+  timezone?: string;
   type: MeetingType;
   description: string;
   emails: string;
   status: MeetingStatus;
   recordingUrl: string;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  joinAvailableUntil?: string | null;
+  canJoin?: boolean;
+  attendees: MeetingAttendee[];
   createdAt: string;
 }
 
@@ -47,12 +57,20 @@ export interface ActionItem {
 export interface Summary {
   id: string;
   meeting: string;
+  transcript: string;
   summary: string;
   keyPoints: string[];
   actionItems: ActionItem[];
   accuracy: number;
   generatedBy: "openai" | "mock";
   createdAt: string;
+}
+
+export interface RecordingArtifact {
+  meeting: Meeting;
+  recordingUrl: string;
+  transcript: string;
+  summary: Summary | null;
 }
 
 export type NotificationType = "meeting" | "mention" | "action" | "system";

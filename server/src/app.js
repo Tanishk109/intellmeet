@@ -1,4 +1,6 @@
 import express from "express";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -12,6 +14,8 @@ import taskRoutes from "./routes/taskRoutes.js";
 import miscRoutes from "./routes/miscRoutes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
+const SERVER_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
 export function createApp() {
   const app = express();
 
@@ -23,6 +27,7 @@ export function createApp() {
     })
   );
   app.use(express.json({ limit: "1mb" }));
+  app.use("/uploads", express.static(path.join(SERVER_ROOT, "uploads")));
   app.use(cookieParser());
   app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 

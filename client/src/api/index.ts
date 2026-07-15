@@ -5,6 +5,7 @@ import type {
   AuthResponse,
   ChatMessage,
   Meeting,
+  RecordingArtifact,
   Summary,
   Task,
   User,
@@ -20,27 +21,61 @@ export const authApi = {
   logout: () => http.post("/auth/logout").then((r) => r.data),
   me: () => http.get<{ success: true; user: User }>("/auth/me").then((r) => r.data.user),
   forgotPassword: (body: { email: string }) =>
-    http.post<{ success: true; message: string }>("/auth/forgot-password", body).then((r) => r.data),
+    http
+      .post<{ success: true; message: string }>("/auth/forgot-password", body)
+      .then((r) => r.data),
 };
 
 export const meetingApi = {
   list: () =>
     http.get<{ success: true; meetings: Meeting[] }>("/meetings").then((r) => r.data.meetings),
+  recordings: () =>
+    http
+      .get<{ success: true; recordings: RecordingArtifact[] }>("/meetings/recordings")
+      .then((r) => r.data.recordings),
   get: (code: string) =>
     http.get<{ success: true; meeting: Meeting }>(`/meetings/${code}`).then((r) => r.data.meeting),
   create: (body: Partial<Meeting>) =>
     http.post<{ success: true; meeting: Meeting }>("/meetings", body).then((r) => r.data.meeting),
   update: (code: string, body: Partial<Meeting>) =>
-    http.put<{ success: true; meeting: Meeting }>(`/meetings/${code}`, body).then((r) => r.data.meeting),
+    http
+      .put<{ success: true; meeting: Meeting }>(`/meetings/${code}`, body)
+      .then((r) => r.data.meeting),
   remove: (code: string) => http.delete(`/meetings/${code}`).then((r) => r.data),
   messages: (code: string) =>
     http
       .get<{ success: true; messages: ChatMessage[] }>(`/meetings/${code}/messages`)
       .then((r) => r.data.messages),
   start: (code: string) =>
-    http.post<{ success: true; meeting: Meeting }>(`/meetings/${code}/start`).then((r) => r.data.meeting),
+    http
+      .post<{ success: true; meeting: Meeting }>(`/meetings/${code}/start`)
+      .then((r) => r.data.meeting),
   end: (code: string) =>
-    http.post<{ success: true; meeting: Meeting }>(`/meetings/${code}/end`).then((r) => r.data.meeting),
+    http
+      .post<{ success: true; meeting: Meeting }>(`/meetings/${code}/end`)
+      .then((r) => r.data.meeting),
+  uploadRecording: (code: string, recording: Blob) => {
+    const data = new FormData();
+    const mimeType = recording.type.split(";")[0] || "video/webm";
+    const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+    data.append("recording", recording.slice(0, recording.size, mimeType), `${code}.${extension}`);
+
+    return http
+      .post<{ success: true; recordingUrl: string; meeting: Meeting }>(
+        `/meetings/${code}/recording`,
+        data
+      )
+      .then((r) => r.data);
+  },
+  saveTranscript: (code: string, transcript: string) =>
+    http
+      .put<{ success: true; transcript: string; summary: Summary }>(
+        `/meetings/${code}/transcript`,
+        {
+          transcript,
+        }
+      )
+      .then((r) => r.data),
 };
 
 export const aiApi = {
@@ -49,7 +84,9 @@ export const aiApi = {
       .post<{ success: true; summary: Summary }>(`/ai/meetings/${code}/summary`, { transcript })
       .then((r) => r.data.summary),
   getSummary: (code: string) =>
-    http.get<{ success: true; summary: Summary }>(`/ai/meetings/${code}/summary`).then((r) => r.data.summary),
+    http
+      .get<{ success: true; summary: Summary }>(`/ai/meetings/${code}/summary`)
+      .then((r) => r.data.summary),
   toggleActionItem: (summaryId: string, itemId: string, done: boolean) =>
     http
       .patch<{ success: true; summary: Summary }>(
@@ -62,8 +99,7 @@ export const aiApi = {
 };
 
 export const taskApi = {
-  list: () =>
-    http.get<{ success: true; tasks: Task[] }>("/tasks").then((r) => r.data.tasks),
+  list: () => http.get<{ success: true; tasks: Task[] }>("/tasks").then((r) => r.data.tasks),
   create: (body: Partial<Task>) =>
     http.post<{ success: true; task: Task }>("/tasks", body).then((r) => r.data.task),
   update: (id: string, body: Partial<Task>) =>

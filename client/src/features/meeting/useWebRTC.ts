@@ -55,6 +55,7 @@ export function useWebRTC(code: string | undefined, displayName: string): UseWeb
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
+  const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const namesRef = useRef<Map<string, string>>(new Map());
 
   // --- helpers to update a single remote peer immutably ---
@@ -203,6 +204,7 @@ export function useWebRTC(code: string | undefined, displayName: string): UseWeb
 
       // 8) Presence + departures + remote media state.
       socket.on("meeting:presence", ({ count }) => setParticipantCount(count));
+      socket.on("meeting:closed", ({ reason }) => setError(reason));
       socket.on("meeting:peer-left", ({ socketId }) => removePeer(socketId));
       socket.on("media:state", ({ socketId, micOn: m, cameraOn: c }) =>
         upsertPeer(socketId, { micOn: m, cameraOn: c })
@@ -241,50 +243,66 @@ export function useWebRTC(code: string | undefined, displayName: string): UseWeb
   }, [broadcastState, cameraOn]);
 
   const toggleCamera = useCallback(() => {
-    const track = localStreamRef.current?.getVideoTracks()[0];
+    const track = sharing ? cameraTrackRef.current : localStreamRef.current?.getVideoTracks()[0];
     if (!track) return;
     track.enabled = !track.enabled;
     setCameraOn(track.enabled);
-    broadcastState(micOn, track.enabled);
-  }, [broadcastState, micOn]);
+    broadcastState(micOn, sharing ? true : track.enabled);
+  }, [broadcastState, micOn, sharing]);
 
   // Replace the outgoing video track on every peer connection (screen <-> cam).
-  const replaceVideoTrack = useCallback((newTrack: MediaStreamTrack) => {
+  const replaceVideoTrack = useCallback((newTrack: MediaStreamTrack | null) => {
     peersRef.current.forEach((pc) => {
       const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-      void sender?.replaceTrack(newTrack);
+      if (sender) void sender.replaceTrack(newTrack);
     });
+
+    const current = localStreamRef.current ?? new MediaStream();
+    current.getVideoTracks().forEach((track) => current.removeTrack(track));
+    if (newTrack) current.addTrack(newTrack);
+    localStreamRef.current = current;
+
+    // Force the local preview to receive a fresh stream object after track swaps.
+    setLocalStream(new MediaStream(current.getTracks()));
   }, []);
 
   const toggleShare = useCallback(async () => {
     if (sharing) {
       // Stop sharing -> go back to camera.
       const cam = cameraTrackRef.current;
-      if (cam) replaceVideoTrack(cam);
+      screenTrackRef.current?.stop();
+      screenTrackRef.current = null;
+      replaceVideoTrack(cam ?? null);
       setSharing(false);
+      broadcastState(micOn, cam?.enabled ?? false);
       return;
     }
     try {
       const display = await navigator.mediaDevices.getDisplayMedia({ video: true });
       const screenTrack = display.getVideoTracks()[0];
+      screenTrackRef.current = screenTrack;
       replaceVideoTrack(screenTrack);
       setSharing(true);
+      broadcastState(micOn, true);
       // When the user clicks the browser's native "Stop sharing", revert.
       screenTrack.onended = () => {
         const cam = cameraTrackRef.current;
-        if (cam) replaceVideoTrack(cam);
+        screenTrackRef.current = null;
+        replaceVideoTrack(cam ?? null);
         setSharing(false);
+        broadcastState(micOn, cam?.enabled ?? false);
       };
     } catch {
       /* user cancelled the picker */
     }
-  }, [sharing, replaceVideoTrack]);
+  }, [broadcastState, micOn, sharing, replaceVideoTrack]);
 
   const leave = useCallback(() => {
     socketRef.current?.emit("meeting:leave");
     socketRef.current?.disconnect();
     peersRef.current.forEach((pc) => pc.close());
     peersRef.current.clear();
+    screenTrackRef.current?.stop();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
   }, []);
 

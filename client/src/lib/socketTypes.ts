@@ -1,5 +1,6 @@
 // Mirrors server/src/sockets/index.js exactly. Keeping the event names and
 // payloads in one typed place prevents client/server drift.
+import type { Task } from "@/types";
 
 export interface PeerInfo {
   socketId: string;
@@ -18,7 +19,12 @@ export interface ServerToClient {
   "meeting:peer-joined": (peer: PeerInfo) => void;
   "meeting:peer-left": (data: { socketId: string }) => void;
   "meeting:presence": (data: { count: number; participants: SocketUser[] }) => void;
-  "webrtc:offer": (data: { from: string; sdp: RTCSessionDescriptionInit; user: SocketUser }) => void;
+  "meeting:closed": (data: { reason: string }) => void;
+  "webrtc:offer": (data: {
+    from: string;
+    sdp: RTCSessionDescriptionInit;
+    user: SocketUser;
+  }) => void;
   "webrtc:answer": (data: { from: string; sdp: RTCSessionDescriptionInit }) => void;
   "webrtc:ice": (data: { from: string; candidate: RTCIceCandidateInit }) => void;
   "chat:message": (msg: {
@@ -32,6 +38,7 @@ export interface ServerToClient {
   "chat:typing": (data: { user: SocketUser }) => void;
   "captions:update": (data: { caption: string; user: SocketUser }) => void;
   "media:state": (data: { socketId: string; micOn: boolean; cameraOn: boolean }) => void;
+  "task:changed": (task: Task) => void;
 }
 
 // Events the CLIENT emits -> server listens for these.
@@ -45,4 +52,6 @@ export interface ClientToServer {
   "chat:typing": (data: { code: string }) => void;
   "captions:update": (data: { code: string; caption: string }) => void;
   "media:state": (data: { code: string; micOn: boolean; cameraOn: boolean }) => void;
+  "workspace:join": (data: { workspaceId: string }) => void;
+  "task:changed": (data: { workspaceId: string; task: Task }) => void;
 }

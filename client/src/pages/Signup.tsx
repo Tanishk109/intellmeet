@@ -25,8 +25,7 @@ export default function Signup() {
     e.preventDefault();
     if (!form.name || !form.email || !form.password)
       return push("Please fill in all fields", "error");
-    if (form.password.length < 6)
-      return push("Password must be at least 6 characters", "error");
+    if (form.password.length < 6) return push("Password must be at least 6 characters", "error");
     setLoading(true);
     try {
       const { accessToken, user } = await authApi.signup(form);
@@ -43,9 +42,7 @@ export default function Signup() {
   return (
     <AuthLayout>
       <h1 className="font-display text-2xl font-bold text-text-hi">Create account</h1>
-      <p className="mt-1.5 text-sm text-text-mid">
-        Start running smarter meetings in minutes.
-      </p>
+      <p className="mt-1.5 text-sm text-text-mid">Start running smarter meetings in minutes.</p>
 
       <div className="mt-8">
         <GoogleButton label="Sign up with Google" />
@@ -82,7 +79,13 @@ export default function Signup() {
           />
         </div>
         <Button type="submit" size="lg" className="w-full" disabled={loading}>
-          {loading ? <Spinner /> : <>Create account <ArrowRight className="size-4" /></>}
+          {loading ? (
+            <Spinner />
+          ) : (
+            <>
+              Create account <ArrowRight className="size-4" />
+            </>
+          )}
         </Button>
       </form>
 

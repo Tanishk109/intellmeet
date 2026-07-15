@@ -1,8 +1,4 @@
-import axios, {
-  type AxiosError,
-  type AxiosInstance,
-  type InternalAxiosRequestConfig,
-} from "axios";
+import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from "axios";
 
 // The access token lives in memory only (never localStorage) to limit XSS blast
 // radius. The refresh token is an httpOnly cookie the browser sends automatically.
@@ -33,11 +29,7 @@ let refreshing: Promise<boolean> | null = null;
 
 async function doRefresh(): Promise<boolean> {
   try {
-    const res = await axios.post(
-      `${baseURL}/auth/refresh`,
-      {},
-      { withCredentials: true }
-    );
+    const res = await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true });
     setAccessToken(res.data.accessToken);
     return true;
   } catch {

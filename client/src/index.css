@@ -1,8 +1,7 @@
 @import "tailwindcss";
 
-/* IntellMeet "Signal" theme — a calm dark command-center palette.
-   Deep ink background, a cyan/teal "signal" accent for live/real-time states,
-   and a warm amber reserved exclusively for AI moments. */
+/* IntellMeet theme tokens. Dark is the default command-center palette; bright
+   remaps the same semantic tokens for a crisp daytime interface. */
 
 @theme {
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
@@ -42,6 +41,30 @@
   color-scheme: dark;
 }
 
+:root[data-theme="bright"] {
+  color-scheme: light;
+
+  --color-ink-950: #f8fafc;
+  --color-ink-900: #ffffff;
+  --color-ink-850: #ffffff;
+  --color-ink-800: #f1f5f9;
+  --color-ink-700: #e2e8f0;
+  --color-ink-600: #cbd5e1;
+  --color-line: #d8e2ee;
+
+  --color-signal-400: #0f766e;
+  --color-signal-500: #0f766e;
+  --color-signal-600: #115e59;
+
+  --color-ai-400: #b45309;
+  --color-ai-500: #92400e;
+
+  --color-danger-500: #dc2626;
+  --color-text-hi: #102033;
+  --color-text-mid: #475569;
+  --color-text-lo: #64748b;
+}
+
 html,
 body,
 #root {
@@ -52,11 +75,16 @@ body {
   margin: 0;
   background:
     radial-gradient(1200px 600px at 80% -10%, #0d948833, transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, #14b8a61f, transparent 55%),
-    var(--color-ink-950);
+    radial-gradient(900px 500px at -10% 110%, #14b8a61f, transparent 55%), var(--color-ink-950);
   color: var(--color-text-hi);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme="bright"] body {
+  background:
+    radial-gradient(1000px 500px at 85% -15%, #14b8a61f, transparent 60%),
+    radial-gradient(850px 480px at -10% 110%, #f59e0b1a, transparent 55%), var(--color-ink-950);
 }
 
 /* Subtle grain so the dark background has texture rather than flat black. */

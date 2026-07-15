@@ -1,25 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import {
-  Video,
-  Sparkles,
-  Clock,
-  TrendingUp,
-  CalendarPlus,
-  ArrowRight,
-} from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  ResponsiveContainer,
-  XAxis,
-  Tooltip,
-  Cell,
-} from "recharts";
+import { Video, Sparkles, Clock, TrendingUp, CalendarPlus, ArrowRight } from "lucide-react";
+import { BarChart, Bar, ResponsiveContainer, XAxis, Tooltip, Cell } from "recharts";
 import { Card, Badge, Spinner } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { meetingApi, miscApi } from "@/api";
 import { useAuth } from "@/stores/auth";
+import { isMeetingJoinable, meetingTimeValue } from "@/lib/meetingState";
+import { formatMeetingWhen } from "@/lib/meetings";
 
 function StatCard({
   icon: Icon,
@@ -55,7 +43,11 @@ export default function Dashboard() {
     queryFn: meetingApi.list,
   });
 
-  const upcoming = meetings?.filter((m) => m.status !== "ended").slice(0, 4) ?? [];
+  const upcoming =
+    meetings
+      ?.filter(isMeetingJoinable)
+      .sort((a, b) => meetingTimeValue(a) - meetingTimeValue(b))
+      .slice(0, 4) ?? [];
 
   return (
     <div className="mx-auto max-w-6xl space-y-7">
@@ -89,11 +81,7 @@ export default function Dashboard() {
           label="Avg duration"
           value={analytics ? `${analytics.avgDurationMins}m` : "—"}
         />
-        <StatCard
-          icon={TrendingUp}
-          label="Live now"
-          value={analytics?.liveMeetings ?? "—"}
-        />
+        <StatCard icon={TrendingUp} label="Live now" value={analytics?.liveMeetings ?? "—"} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -150,9 +138,7 @@ export default function Dashboard() {
                 <Spinner className="text-signal-400" />
               </div>
             ) : upcoming.length === 0 ? (
-              <p className="py-8 text-center text-sm text-text-lo">
-                No upcoming meetings.
-              </p>
+              <p className="py-8 text-center text-sm text-text-lo">No upcoming meetings.</p>
             ) : (
               upcoming.map((m) => (
                 <Link
@@ -162,9 +148,7 @@ export default function Dashboard() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-text-hi">{m.title}</div>
-                    <div className="text-xs text-text-lo">
-                      {m.date} · {m.time}
-                    </div>
+                    <div className="text-xs text-text-lo">{formatMeetingWhen(m)}</div>
                   </div>
                   {m.status === "live" ? (
                     <Badge tone="signal" className="animate-pulse-ring">

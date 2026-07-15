@@ -14,7 +14,14 @@ export function AccuracyRing({ value, size = 64 }: AccuracyRingProps) {
   return (
     <div className="relative grid place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#1e2840" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="#1e2840"
+          strokeWidth={stroke}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}

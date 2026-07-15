@@ -29,7 +29,7 @@ export const getAnalytics = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   const meetings = await Meeting.find({
     $or: [{ host: userId }, { participants: userId }],
-  });
+  }).sort({ scheduledAt: 1, createdAt: -1 });
 
   const totalMeetings = meetings.length;
   const liveMeetings = meetings.filter((m) => m.status === "live").length;
@@ -48,7 +48,7 @@ export const getAnalytics = asyncHandler(async (req, res) => {
   const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const counts = [0, 0, 0, 0, 0, 0, 0];
   for (const m of meetings) {
-    const d = new Date(`${m.date}T00:00:00`);
+    const d = m.scheduledAt ? new Date(m.scheduledAt) : new Date(`${m.date}T00:00:00`);
     if (!Number.isNaN(d.getTime())) counts[(d.getDay() + 6) % 7] += 1;
   }
   const weekly = labels.map((day, i) => ({ day, meetings: counts[i] }));

@@ -13,7 +13,23 @@ import { apiErrorMessage } from "@/lib/http";
 import { MEETING_TYPES, parseEmails } from "@/lib/meetings";
 import type { Meeting, MeetingType } from "@/types";
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+function localDateInput(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function nextTimeInput() {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() + 30);
+  date.setSeconds(0, 0);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function scheduledDate(form: { date: string; time: string }) {
+  return new Date(`${form.date}T${form.time}`);
+}
 
 export default function Schedule() {
   const navigate = useNavigate();
@@ -22,8 +38,8 @@ export default function Schedule() {
 
   const [form, setForm] = useState({
     title: "",
-    date: todayISO(),
-    time: "10:00",
+    date: localDateInput(),
+    time: nextTimeInput(),
     type: "Team Meeting" as MeetingType,
     description: "",
     emails: "",
@@ -53,7 +69,16 @@ export default function Schedule() {
     e.preventDefault();
     if (!form.title.trim()) return push("Give the meeting a title", "error");
     if (!form.date || !form.time) return push("Pick a date and time", "error");
-    mutation.mutate(form);
+    const scheduledAt = scheduledDate(form);
+    if (Number.isNaN(scheduledAt.getTime())) return push("Pick a valid date and time", "error");
+    if (scheduledAt.getTime() < Date.now() - 60 * 1000) {
+      return push("Pick a future meeting time", "error");
+    }
+    mutation.mutate({
+      ...form,
+      scheduledAt: scheduledAt.toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
   };
 
   return (
@@ -86,7 +111,13 @@ export default function Schedule() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <Label htmlFor="date">Date</Label>
-              <Input id="date" type="date" value={form.date} onChange={set("date")} />
+              <Input
+                id="date"
+                type="date"
+                min={localDateInput()}
+                value={form.date}
+                onChange={set("date")}
+              />
             </div>
             <div>
               <Label htmlFor="time">Time</Label>
