@@ -37,6 +37,14 @@ export function createApp() {
     rateLimit({ windowMs: 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false })
   );
 
+  app.get("/", (req, res) =>
+    res.status(200).json({
+      success: true,
+      message: "IntellMeet API is running",
+      health: "/api/health",
+    })
+  );
+
   app.get("/api/health", (req, res) =>
     res.json({ success: true, status: "ok", time: new Date().toISOString() })
   );

@@ -166,12 +166,15 @@ export const createMeeting = asyncHandler(async (req, res) => {
     const joinUrl = `${appUrl}/app/room/${meeting.code}`;
     const { subject, html, text } = meetingInviteEmail({
       hostName: req.user.name,
+      hostEmail: req.user.email,
       title,
       date,
       time,
+      timezone,
       type: type || "Team Meeting",
       code: meeting.code,
       joinUrl,
+      description,
     });
     const results = await Promise.all(
       recipients.map((to) => sendEmail({ to, subject, html, text }))

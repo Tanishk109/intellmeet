@@ -40,6 +40,19 @@ See `.env.example`. Key ones: `MONGO_URI`, `JWT_ACCESS_SECRET`,
 mock to real OpenAI calls — leave it blank and everything still works with mock
 responses (no key needed for the demo).
 
+For meeting invitation email, configure Gmail SMTP with a Google App Password:
+
+```bash
+GMAIL_USER=tanishkmittal183@gmail.com
+GMAIL_APP_PASSWORD=your_16_character_google_app_password
+MAIL_FROM=IntellMeet <tanishkmittal183@gmail.com>
+```
+
+Do not use the normal Gmail account password. Enable 2-Step Verification in the
+Google account and create an App Password for this backend. If Gmail is not
+configured, the server can still fall back to `RESEND_API_KEY`; if neither
+provider is configured, invites are logged during development.
+
 ## 4. Auth model
 
 - Access token (short-lived) returned in the JSON body → frontend sends it as

@@ -24,6 +24,10 @@ services:
       JWT_REFRESH_EXPIRES: 7d
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GMAIL_USER: ${GMAIL_USER:-tanishkmittal183@gmail.com}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-IntellMeet <tanishkmittal183@gmail.com>}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     depends_on:
       - mongo
 
