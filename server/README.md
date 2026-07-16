@@ -40,17 +40,22 @@ See `.env.example`. Key ones: `MONGO_URI`, `JWT_ACCESS_SECRET`,
 mock to real OpenAI calls — leave it blank and everything still works with mock
 responses (no key needed for the demo).
 
-For meeting invitation email, configure Gmail SMTP with a Google App Password:
+For meeting invitation email on Render, configure Gmail API credentials. Gmail
+API uses HTTPS, which is more reliable on Render than raw SMTP:
 
 ```bash
 GMAIL_USER=tanishkmittal183@gmail.com
-GMAIL_APP_PASSWORD=your_16_character_google_app_password
+GMAIL_CLIENT_ID=your_google_oauth_client_id
+GMAIL_CLIENT_SECRET=your_google_oauth_client_secret
+GMAIL_REFRESH_TOKEN=your_google_oauth_refresh_token
 MAIL_FROM=IntellMeet <tanishkmittal183@gmail.com>
 ```
 
-Do not use the normal Gmail account password. Enable 2-Step Verification in the
-Google account and create an App Password for this backend. If Gmail is not
-configured, the server can still fall back to `RESEND_API_KEY`; if neither
+The OAuth client must have access to the Gmail account
+`tanishkmittal183@gmail.com` with the `https://www.googleapis.com/auth/gmail.send`
+scope. SMTP with `GMAIL_APP_PASSWORD` is still supported as a fallback, but
+some Render plans/networks may block or time out SMTP connections. If Gmail is
+not configured, the server can fall back to `RESEND_API_KEY`; if neither
 provider is configured, invites are logged during development.
 
 ## 4. Auth model

@@ -1,10 +1,13 @@
 import dns from "node:dns";
+import { randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
 
-// Email delivery supports Gmail SMTP first, then Resend as a fallback. If no
-// provider is configured, invites are logged instead of failing so meeting
-// creation still works in local development and tests.
+// Email delivery supports Gmail API first, then Gmail SMTP, then Resend as a
+// fallback. If no provider is configured, invites are logged instead of failing
+// so meeting creation still works in local development and tests.
 
+const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const GMAIL_SEND_ENDPOINT = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const DEFAULT_GMAIL_USER = "tanishkmittal183@gmail.com";
 
@@ -18,6 +21,14 @@ function lookupIPv4(hostname, options, callback) {
 
 function hasResend() {
   return Boolean(process.env.RESEND_API_KEY);
+}
+
+function hasGmailApi() {
+  return Boolean(
+    process.env.GMAIL_CLIENT_ID &&
+      process.env.GMAIL_CLIENT_SECRET &&
+      process.env.GMAIL_REFRESH_TOKEN
+  );
 }
 
 function gmailUser() {
@@ -69,12 +80,112 @@ function detailRow(label, value) {
   return `<tr><td style="padding:6px 0;color:#9fb0d0">${label}</td><td style="padding:6px 0;color:#eef2ff">${escapeHtml(value)}</td></tr>`;
 }
 
+function cleanHeader(value = "") {
+  return String(value).replace(/[\r\n]+/g, " ").trim();
+}
+
+function encodeHeader(value = "") {
+  const clean = cleanHeader(value);
+  return /^[\x00-\x7F]*$/.test(clean)
+    ? clean
+    : `=?UTF-8?B?${Buffer.from(clean).toString("base64")}?=`;
+}
+
+function base64Url(value) {
+  return Buffer.from(value)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function buildRawEmail({ from, to, subject, text, html }) {
+  const boundary = `intellmeet-${randomUUID()}`;
+  return [
+    `From: ${cleanHeader(from)}`,
+    `To: ${cleanHeader(to)}`,
+    `Subject: ${encodeHeader(subject)}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    text || "",
+    "",
+    `--${boundary}`,
+    "Content-Type: text/html; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    html || "",
+    "",
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+}
+
+async function getGmailApiAccessToken() {
+  const res = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.GMAIL_CLIENT_ID,
+      client_secret: process.env.GMAIL_CLIENT_SECRET,
+      refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`token ${res.status}: ${body}`);
+  }
+
+  const data = await res.json();
+  if (!data.access_token) throw new Error("token response did not include access_token");
+  return data.access_token;
+}
+
+async function sendWithGmailApi({ from, to, subject, html, text }) {
+  const accessToken = await getGmailApiAccessToken();
+  const raw = base64Url(buildRawEmail({ from, to, subject, html, text }));
+
+  const res = await fetch(GMAIL_SEND_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ raw }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`send ${res.status}: ${body}`);
+  }
+}
+
 /**
  * Send one email. Returns { sent: boolean }. Never throws on a provider error —
  * a meeting must still be created even if the invite email fails.
  */
 export async function sendEmail({ to, subject, html, text }) {
   const from = fromAddress();
+
+  if (process.env.NODE_ENV === "test") {
+    console.log(`[mail:test] would send from ${from} to ${to}: ${subject}`);
+    return { sent: false, reason: "test" };
+  }
+
+  if (hasGmailApi()) {
+    try {
+      await sendWithGmailApi({ from, to, subject, html, text });
+      return { sent: true, provider: "gmail_api" };
+    } catch (err) {
+      console.error("[mail] Gmail API send failed:", err.message);
+    }
+  }
 
   if (hasGmailSmtp()) {
     try {
