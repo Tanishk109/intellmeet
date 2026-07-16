@@ -13,6 +13,7 @@ import aiRoutes from "./routes/aiRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import miscRoutes from "./routes/miscRoutes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
+import { isAllowedOrigin } from "./config/origins.js";
 
 const SERVER_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -26,7 +27,10 @@ export function createApp() {
   app.use(helmet());
   app.use(
     cors({
-      origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+      origin(origin, callback) {
+        if (isAllowedOrigin(origin)) return callback(null, true);
+        return callback(new Error(`CORS blocked origin: ${origin}`));
+      },
       credentials: true,
     })
   );
@@ -48,6 +52,8 @@ export function createApp() {
       health: "/api/health",
     })
   );
+
+  app.get("/favicon.ico", (req, res) => res.status(204).end());
 
   app.get("/api/health", (req, res) =>
     res.json({ success: true, status: "ok", time: new Date().toISOString() })

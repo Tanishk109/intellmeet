@@ -2,6 +2,7 @@ import http from "http";
 import dotenv from "dotenv";
 import { createApp } from "./app.js";
 import { connectDB } from "./config/db.js";
+import { allowedOrigins } from "./config/origins.js";
 import { initSockets } from "./sockets/index.js";
 
 dotenv.config();
@@ -14,11 +15,12 @@ async function start() {
   const app = createApp();
   const server = http.createServer(app);
 
-  initSockets(server, process.env.CLIENT_ORIGIN || "http://localhost:5173");
+  const origins = allowedOrigins();
+  initSockets(server, origins);
 
   server.listen(PORT, () => {
     console.log(`[server] IntellMeet API on http://localhost:${PORT}`);
-    console.log(`[server] Socket.io ready, CORS origin: ${process.env.CLIENT_ORIGIN}`);
+    console.log(`[server] Socket.io ready, CORS origins: ${origins.join(", ")}`);
   });
 }
 
