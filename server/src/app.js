@@ -19,6 +19,10 @@ const SERVER_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 export function createApp() {
   const app = express();
 
+  // Render and other managed hosts sit behind a reverse proxy. Trusting one
+  // proxy lets express-rate-limit read the real client IP from X-Forwarded-For.
+  app.set("trust proxy", 1);
+
   app.use(helmet());
   app.use(
     cors({
