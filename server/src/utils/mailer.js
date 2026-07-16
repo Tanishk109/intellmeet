@@ -12,6 +12,10 @@ const DEFAULT_GMAIL_USER = "tanishkmittal183@gmail.com";
 // reachable. Prefer IPv4 so Gmail SMTP does not fail with ENETUNREACH on IPv6.
 dns.setDefaultResultOrder?.("ipv4first");
 
+function lookupIPv4(hostname, options, callback) {
+  dns.lookup(hostname, { ...options, family: 4, all: false }, callback);
+}
+
 function hasResend() {
   return Boolean(process.env.RESEND_API_KEY);
 }
@@ -38,6 +42,7 @@ function getGmailTransporter() {
       secure: false,
       requireTLS: true,
       family: 4,
+      lookup: lookupIPv4,
       auth: {
         user: gmailUser(),
         pass: process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_SMTP_PASSWORD,
