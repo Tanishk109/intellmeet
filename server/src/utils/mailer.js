@@ -1,3 +1,4 @@
+import dns from "node:dns";
 import nodemailer from "nodemailer";
 
 // Email delivery supports Gmail SMTP first, then Resend as a fallback. If no
@@ -6,6 +7,10 @@ import nodemailer from "nodemailer";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const DEFAULT_GMAIL_USER = "tanishkmittal183@gmail.com";
+
+// Render's network can expose IPv6 DNS answers even when outbound IPv6 is not
+// reachable. Prefer IPv4 so Gmail SMTP does not fail with ENETUNREACH on IPv6.
+dns.setDefaultResultOrder?.("ipv4first");
 
 function hasResend() {
   return Boolean(process.env.RESEND_API_KEY);
@@ -28,11 +33,18 @@ let gmailTransporter;
 function getGmailTransporter() {
   if (!gmailTransporter) {
     gmailTransporter = nodemailer.createTransport({
-      service: "gmail",
+      host: process.env.GMAIL_SMTP_HOST || "smtp.gmail.com",
+      port: Number(process.env.GMAIL_SMTP_PORT || 587),
+      secure: false,
+      requireTLS: true,
+      family: 4,
       auth: {
         user: gmailUser(),
         pass: process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_SMTP_PASSWORD,
       },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
     });
   }
   return gmailTransporter;
