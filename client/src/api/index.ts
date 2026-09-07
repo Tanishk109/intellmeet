@@ -5,6 +5,7 @@ import type {
   AuthResponse,
   ChatMessage,
   Meeting,
+  MeetingCreateResponse,
   RecordingArtifact,
   Summary,
   Task,
@@ -36,7 +37,7 @@ export const meetingApi = {
   get: (code: string) =>
     http.get<{ success: true; meeting: Meeting }>(`/meetings/${code}`).then((r) => r.data.meeting),
   create: (body: Partial<Meeting>) =>
-    http.post<{ success: true; meeting: Meeting }>("/meetings", body).then((r) => r.data.meeting),
+    http.post<MeetingCreateResponse>("/meetings", body).then((r) => r.data),
   update: (code: string, body: Partial<Meeting>) =>
     http
       .put<{ success: true; meeting: Meeting }>(`/meetings/${code}`, body)

@@ -47,6 +47,23 @@ export interface Meeting {
   createdAt: string;
 }
 
+export interface InviteDelivery {
+  to: string;
+  sent: boolean;
+  provider: string | null;
+  reason: string | null;
+}
+
+export interface MeetingCreateResponse {
+  success: true;
+  meeting: Meeting;
+  invited: {
+    total: number;
+    sent: number;
+    delivery?: InviteDelivery[];
+  };
+}
+
 export interface ActionItem {
   id: string;
   text: string;

@@ -12,7 +12,33 @@ export function allowedOrigins() {
     .filter(Boolean);
 }
 
+function hostnameFromOrigin(origin) {
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return "";
+  }
+}
+
+function vercelPreviewPrefixes() {
+  return allowedOrigins()
+    .map(hostnameFromOrigin)
+    .filter((host) => host.endsWith(".vercel.app"))
+    .map((host) => host.replace(/\.vercel\.app$/, ""))
+    .filter(Boolean);
+}
+
+function isAllowedVercelPreview(origin) {
+  const host = hostnameFromOrigin(origin);
+  if (!host.endsWith(".vercel.app")) return false;
+
+  return vercelPreviewPrefixes().some(
+    (prefix) => host === `${prefix}.vercel.app` || host.startsWith(`${prefix}-`)
+  );
+}
+
 export function isAllowedOrigin(origin) {
   if (!origin) return true;
-  return allowedOrigins().includes(normalizeOrigin(origin));
+  const normalized = normalizeOrigin(origin);
+  return allowedOrigins().includes(normalized) || isAllowedVercelPreview(normalized);
 }

@@ -31,6 +31,12 @@ function hasGmailApi() {
   );
 }
 
+function missingGmailApiVars() {
+  return ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN"].filter(
+    (key) => !process.env[key]
+  );
+}
+
 function gmailUser() {
   return process.env.GMAIL_USER || DEFAULT_GMAIL_USER;
 }
@@ -172,6 +178,7 @@ async function sendWithGmailApi({ from, to, subject, html, text }) {
  */
 export async function sendEmail({ to, subject, html, text }) {
   const from = fromAddress();
+  let providerErrorReason = "";
 
   if (process.env.NODE_ENV === "test") {
     console.log(`[mail:test] would send from ${from} to ${to}: ${subject}`);
@@ -181,19 +188,27 @@ export async function sendEmail({ to, subject, html, text }) {
   if (hasGmailApi()) {
     try {
       await sendWithGmailApi({ from, to, subject, html, text });
+      console.log(`[mail] Gmail API sent invite from ${gmailUser()} to ${to}: ${subject}`);
       return { sent: true, provider: "gmail_api" };
     } catch (err) {
       console.error("[mail] Gmail API send failed:", err.message);
+      providerErrorReason = "gmail_api_error";
     }
+  }
+
+  const missingApiVars = missingGmailApiVars();
+  if (missingApiVars.length) {
+    console.warn(`[mail] Gmail API not configured. Missing: ${missingApiVars.join(", ")}`);
   }
 
   if (hasGmailSmtp()) {
     try {
       await getGmailTransporter().sendMail({ from, to, subject, html, text });
+      console.log(`[mail] Gmail SMTP sent invite from ${gmailUser()} to ${to}: ${subject}`);
       return { sent: true, provider: "gmail" };
     } catch (err) {
       console.error("[mail] Gmail SMTP send failed:", err.message);
-      return { sent: false, reason: "gmail_error" };
+      providerErrorReason = "gmail_error";
     }
   }
 
@@ -212,6 +227,7 @@ export async function sendEmail({ to, subject, html, text }) {
         console.error(`[mail] Resend error ${res.status}: ${body}`);
         return { sent: false, reason: "resend_error" };
       }
+      console.log(`[mail] Resend sent invite from ${from} to ${to}: ${subject}`);
       return { sent: true, provider: "resend" };
     } catch (err) {
       console.error("[mail] Resend send failed:", err.message);
@@ -219,8 +235,10 @@ export async function sendEmail({ to, subject, html, text }) {
     }
   }
 
+  if (providerErrorReason) return { sent: false, reason: providerErrorReason };
+
   console.log(
-    `[mail:dev] (no GMAIL_APP_PASSWORD or RESEND_API_KEY) would send from ${from} to ${to}: ${subject}`
+    `[mail:dev] (no Gmail API, Gmail SMTP, or Resend provider configured) would send from ${from} to ${to}: ${subject}`
   );
   return { sent: false, reason: "no_provider" };
 }

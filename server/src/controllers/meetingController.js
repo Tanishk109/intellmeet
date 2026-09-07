@@ -7,6 +7,7 @@ import Message from "../models/Message.js";
 import Summary from "../models/Summary.js";
 import User from "../models/User.js";
 import cloudinary from "../config/cloudinary.js";
+import { normalizeOrigin } from "../config/origins.js";
 import { ApiError, asyncHandler, isHost, isMember } from "../utils/helpers.js";
 import { sendEmail, meetingInviteEmail } from "../utils/mailer.js";
 
@@ -160,9 +161,10 @@ export const createMeeting = asyncHandler(async (req, res) => {
   // can't break meeting creation. We report how many actually went out.
   const recipients = parseEmails(emails);
   let invitedCount = 0;
+  let inviteDelivery = [];
   if (recipients.length) {
     const appUrl =
-      process.env.CLIENT_ORIGIN?.split(",")[0]?.trim() || "http://localhost:5173";
+      normalizeOrigin(process.env.CLIENT_ORIGIN?.split(",")[0]) || "http://localhost:5173";
     const joinUrl = `${appUrl}/app/room/${meeting.code}`;
     const { subject, html, text } = meetingInviteEmail({
       hostName: req.user.name,
@@ -177,15 +179,24 @@ export const createMeeting = asyncHandler(async (req, res) => {
       description,
     });
     const results = await Promise.all(
-      recipients.map((to) => sendEmail({ to, subject, html, text }))
+      recipients.map(async (to) => {
+        const result = await sendEmail({ to, subject, html, text });
+        return { to, ...result };
+      })
     );
     invitedCount = results.filter((r) => r.sent).length;
+    inviteDelivery = results.map((result) => ({
+      to: result.to,
+      sent: Boolean(result.sent),
+      provider: result.provider || null,
+      reason: result.reason || null,
+    }));
   }
 
   res.status(201).json({
     success: true,
     meeting: meeting.toPublic(),
-    invited: { total: recipients.length, sent: invitedCount },
+    invited: { total: recipients.length, sent: invitedCount, delivery: inviteDelivery },
   });
 });
 

@@ -132,7 +132,7 @@ describe("Meetings", () => {
     const host = await signup({ email: "early-host@example.com" });
     const inviteeEmail = "later-invitee@example.com";
 
-    await request(app)
+    const created = await request(app)
       .post("/api/meetings")
       .set(auth(host.token))
       .send({
@@ -141,6 +141,13 @@ describe("Meetings", () => {
         time: "12:00",
         emails: inviteeEmail,
       });
+
+    expect(created.status).toBe(201);
+    expect(created.body.invited).toMatchObject({
+      total: 1,
+      sent: 0,
+      delivery: [{ to: inviteeEmail, sent: false, reason: "test" }],
+    });
 
     const invitee = await signup({ email: inviteeEmail });
     const response = await request(app).get("/api/meetings").set(auth(invitee.token));

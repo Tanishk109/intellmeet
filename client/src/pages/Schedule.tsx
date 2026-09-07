@@ -54,13 +54,21 @@ export default function Schedule() {
 
   const mutation = useMutation({
     mutationFn: (body: Partial<Meeting>) => meetingApi.create(body),
-    onSuccess: (meeting) => {
+    onSuccess: (response) => {
       // Refresh any cached meetings lists so the new one shows immediately.
       void qc.invalidateQueries({ queryKey: ["meetings"] });
       void qc.invalidateQueries({ queryKey: ["analytics"] });
-      push("Meeting scheduled 🚀", "success");
+      if (response.invited.total === 0) {
+        push("Meeting scheduled", "success");
+      } else if (response.invited.sent === response.invited.total) {
+        push(`Meeting scheduled. ${response.invited.sent} invite email(s) sent.`, "success");
+      } else {
+        push(
+          `Meeting scheduled, but only ${response.invited.sent}/${response.invited.total} invite email(s) were sent. Check Render mail logs.`,
+          "error"
+        );
+      }
       navigate("/app/meetings");
-      void meeting;
     },
     onError: (err) => push(apiErrorMessage(err), "error"),
   });
